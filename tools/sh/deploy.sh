@@ -3,7 +3,9 @@
 set -e
 
 readonly PROGNAME=$(basename $0)
-readonly DB_PATH="$( cd "$( dirname "$0" )" && pwd )"
+readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
+readonly PGPATCH_PATH="$( cd "$( dirname "$( dirname "$( dirname "$0" )" )" )" && pwd )"
+
 readonly ARGS="$@"
 readonly ARGC="$#"
 
@@ -15,8 +17,6 @@ DBUSER=''
 DBHOST=''
 DATABASE=''
 DBPORT=''
-
-SILENT=0
 
 function grep_bin() {
     if [[ ${OSTYPE//[0-9.]} == "solaris" ]]; then
@@ -84,42 +84,6 @@ function confirm_action {
     return 0
 }
 
-function read_input() {
-    local default_val=$1
-    local message=$2
-    local input_val=$3
-
-    if [ "$input_val" = '' ]; then
-        [[ $SILENT -eq 0 ]] && read -p "$message" input_val
-        input_val=${input_val:-$default_val}
-    fi
-    echo $input_val
-}
-
-function read_config() {
-    local config=$1
-    local tmp_config="/tmp/sr_db.$$.conf"
-
-    if [ "$ARGC" == "0" ] && [ ! -f $config ] ; then
-        help
-        exit
-    elif [ -f $config ] ; then
-        # clear tmp file
-        :> $tmp_config
-        # remove dangerous stuff
-        sed -e 's/#.*$//g;s/;.*$//g;/^$/d' $config |
-            while read line
-            do
-                if echo $line | grep_bin -F = &>/dev/null
-                then
-                    echo "$line" >> $tmp_config
-                fi
-            done
-        . $tmp_config
-        rm $tmp_config
-    fi
-    return 0
-}
 
 function read_args() {
     local arg=
@@ -132,15 +96,12 @@ function read_args() {
             --help)           help && exit 0;;
             --host)           args="${args}-h ";;
             --port)           args="${args}-p ";;
-            --database)       args="${args}-d ";;
             --user)           args="${args}-U ";;
+            --database)       args="${args}-d ";;
+            --yes)            args="${args}-y ";;
             --dry-run)        args="${args}-0 ";;
             --silent)         args="${args}-s ";;
             --verbose)        args="${args}-v ";;
-            --test)           args="${args}-t ";;
-            --roles)          args="${args}-r ";;
-            --debug)          args="${args}-x ";;
-            --config)         args="${args}-c ";;
             #pass through anything else
             *) [[ "${arg:0:1}" == "-" ]] || delim="\""
                args="${args}${delim}${arg}${delim} ";;
@@ -151,19 +112,17 @@ function read_args() {
     eval set -- $args
 
     # read parameters
-    while getopts "PIc:h:d:U:p:sv0cretx" optname
+    while getopts "c:h:p:U:d:ysv0" optname
     do
         case "$optname" in
-            "H") help && exit 0 ;;
-            "c") v_config=$OPTARG;;
             "h") v_host=$OPTARG ;;
-            "d") v_db=$OPTARG ;;
-            "U") v_dbuser=$OPTARG ;;
             "p") v_port=$OPTARG ;;
-            "s") SILENT=1 ;;
-            "v") v_verbose='-a' ;;
-            "0") v_dry_run='-0' ;;
-            "r") v_create_roles='-r' ;;
+            "U") v_dbuser=$OPTARG ;;
+            "d") v_db=$OPTARG ;;
+            "y") v_disable_prompt=1 ;;
+            "s") v_silent_flag='-s' ;;
+            "0") v_dry_run_flag='-0' ;;
+            "v") v_verbose_flag='-a' ;; # for psql execution
             "?") echo "Unknown option $OPTARG" ;;
             ":") echo "No argument value for option $OPTARG" ;;
             *) echo "Unknown error while processing options" ;;
@@ -172,85 +131,57 @@ function read_args() {
     return 0
 }
 
-function args_process() {
-
-    # Defaults for messages
-    local hostname=''
-    local port='5432'
-    local dbname='demodb'
-    local dbuser='demodb_owner'
-
-    # process parameters
-
-    # server host
-    v_host=$(read_input "$hostname" "Enter destination hostname [$hostname]: " ${v_host:-$DBHOST})
-
-    # server port
-    v_port=$(read_input "$port" "Enter destination port [$port]: " ${v_port:-$DBPORT})
-
-    # database
-    v_db=$(read_input "$dbname" "Enter destination database [$dbname]: " ${v_db:-$DATABASE})
-
-    # database user
-    v_dbuser=$(read_input "$dbuser" "Enter destination user [$dbuser]: " ${v_dbuser:-$DBUSER})
-
+function notify_and_confirm() {
     cat <<EOF
 You are going to apply changes to
   host:     $v_host
-  database: $v_db
-  username: $v_dbuser
   port:     $v_port
+  username: $v_dbuser
+  database: $v_db
 
 EOF
 
-    [[ $SILENT -eq 0 ]] && confirm_action
+    [[ $v_disable_prompt -eq 0 ]] && confirm_action
     return 0
 }
 
 function run_actions() {
-    local dbhost=''
-    local dbport=''
     local patch_action=''
     local dbinstall=''
 
-    if [ "$v_host" != '' ]; then
-        dbhost="-h $v_host"
-    fi
-
-    if [ "$v_port" != '' ]; then
-        dbport="-p $v_port"
-    fi
-
     echo "Checking database..."
-    patch_action=$(psql -tXq $dbhost $dbport -d $v_db -U $v_dbuser -f tools/sql/db_check.sql  -v appname='demodb' | tr -d '[[:space:]]')
+    patch_action=$(psql -tXq -h $v_host -p $v_port -U $v_dbuser -d $v_db -f $PGPATCH_PATH/tools/sql/db_check.sql  -v appname='demodb' | tr -d '[[:space:]]')
 
     if [ "$patch_action" = 'I' ] ; then
-        echo "Empty database. Will perform install"
-        dbinstall='-install'
+        echo "Empty database, installing pg-patch and deploying all patches."
+        dbinstall='--install'
     elif [ "$patch_action" = 'P' ] ; then
-        echo "Application and patches found. Will perform patch"
+        echo "Deploying patches."
     else
         echo "Database preconditions failed."
-        exit
+        exit 1
     fi
     echo "Applying changes..."
 
-    $DB_PATH/generate_sql.sh $dbinstall $v_dry_run |
-        psql -X $v_verbose -v ON_ERROR_STOP=1 --pset pager=off $dbhost -d $v_db $dbport -U $v_dbuser 2>&1 |
-        if [ "$v_verbose" = '-a' ]; then \
+    $PGPATCH_PATH/tools/sh/sql.sh -h $v_host -p $v_port -U $v_dbuser -d $v_db $dbinstall $v_dry_run_flag $v_silent_flag |
+        PGAPPNAME='pg-patch (main)' psql -X $v_verbose_flag -v ON_ERROR_STOP=1 --pset pager=off -h $v_host -p $v_port -U $v_dbuser -d $v_db 2>&1 |
+        if [ "$v_verbose_flag" = '-a' ]; then \
             cat; \
         else \
-            grep_bin -E 'WARNING|ERROR|FATAL' | sed_bin 's/WARNING: //'; \
+            grep_bin -E 'WARNING|ERROR|FATAL' | sed_bin 's/WARNING:  pg-patch://'; \
         fi
 
-    if test ${PIPESTATUS[1]} -eq 0
+    if [[ ${PIPESTATUS[0]} -eq 0 && ${PIPESTATUS[1]} -eq 0 ]]
     then
         echo "Done."
     else
-        echo "Failed to perform actions. Check parameters that you passed."
-        exit ${PIPESTATUS[1]}
+        echo "ERROR:  failed to deploy patches"
+        if [[ ${PIPESTATUS[0]} -ne 0 ]] ; then
+            exit ${PIPESTATUS[0]}
+        else
+            exit ${PIPESTATUS[1]}
+        fi
     fi
-    echo
 
     return 0
 }
@@ -258,22 +189,19 @@ function run_actions() {
 function main() {
     # define variables and default values
     local v_host=''
-    local v_db=''
-    local v_dbuser=''
     local v_port=''
-    local v_verbose='-q'
-    local v_dry_run=''
-    local v_create_roles=''
-    local v_config="$DB_PATH/database.conf"
+    local v_dbuser=''
+    local v_db=''
+    local v_disable_prompt=0
+    local v_silent_flag=''
+    local v_dry_run_flag=''
+    local v_verbose_flag='-q'
 
     # get and parse arguments
     read_args $ARGS
 
-    # get values from config file
-    read_config $v_config
-
-    # process command line parameters and config values
-    args_process
+    # show destination and ask confirmation
+    notify_and_confirm
 
     run_actions
 }

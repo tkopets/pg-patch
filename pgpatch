@@ -1,0 +1,300 @@
+#!/bin/bash
+
+set -e
+
+readonly PROGNAME=$(basename $0)
+readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
+
+# default parameters
+DBHOST=${PGHOST}
+DBPORT=${PGPORT:-5432}
+DBUSER=${PGUSER}
+DATABASE=${PGDATABASE}
+
+DISABLE_PROMPT=0
+
+function help {
+    cat <<EOF
+This is help for $PROGNAME script
+This is a helper script for updating and patching database
+
+Default options could be passed to $PROGNAME with database.conf file.
+Example file could be found in database.conf.default
+
+Script will attempt to find repository information from git or hg repository.
+If none is found script will look into file repo.info (see repo.info.example).
+
+List of options:
+  --help              - prints this message.
+
+Connection settings:
+  -h --host <host>    - target host name
+  -d --database <db>  - target database name
+  -p --port <port>    - database server port name
+  -U --user <user>    - database user
+
+Behaviour flags:
+  -y --yes      - disable the confirmation prompt
+  -v --verbose  - verbose mode, prints all commands sent to database
+  -0 --dry-run  - dry run mode, rollbacks all changes in the end (for testing)
+
+Usage examples:
+  ./$PROGNAME -d demodb -h localhost -U demodb_owner -p 5432
+  ./$PROGNAME -d demodb -h localhost -U demodb_owner -p 5432 -s
+  ./$PROGNAME -c path/to/database.conf
+  ./$PROGNAME -c path/to/database.conf
+EOF
+}
+
+
+function grep_bin() {
+    if [[ ${OSTYPE//[0-9.]} == "solaris" ]]; then
+        ggrep "$@"
+    else
+        grep "$@"
+    fi
+}
+
+
+function read_input() {
+    local default_val=$1
+    local message=$2
+    local input_val=$3
+
+    if [ "$input_val" = '' ]; then
+        [[ $DISABLE_PROMPT -eq 0 ]] && read -p "$message" input_val
+        input_val=${input_val:-$default_val}
+    fi
+    echo $input_val
+}
+
+
+function read_config() {
+    local config=$1
+    local mandatory=${2:-'optional'} # 'mandatory' or 'optional'
+    local tmp_config="/tmp/sr_db.$$.conf"
+
+    # echo "reading config: $1, mandatory: $mandatory"
+
+    # print help if only command is specified and config not found
+    if [[ "$mandatory" == 'mandatory' ]] && [[ ! -f $config ]] ; then
+        echo "ERROR:  config file '$config' not found. See '$PROGNAME --help'." 1>&2
+        exit 1
+    fi
+
+    if [[ -f $config ]] ; then
+        # clear tmp file
+        :> $tmp_config
+        # remove dangerous stuff
+        sed -e 's/#.*$//g;s/;.*$//g;/^$/d' $config |
+            while read line
+            do
+                if echo $line | grep_bin -F = &>/dev/null
+                then
+                    echo "$line" >> $tmp_config
+                fi
+            done
+        . $tmp_config
+        rm $tmp_config
+    fi
+    return 0
+}
+
+
+function check_command() {
+    case "$1" in
+        help)             help && exit 0;;
+        --help)           help && exit 0;;
+        list)             PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/list.sh" ;;
+        sql)              PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/sql.sh" ;;
+        deploy)           PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/deploy.sh" ;;
+        install)          PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/install.sh" ;;
+        add)              PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/add.sh" ;;
+        dot)              PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/dot.sh" ;;
+        # error, if anything else
+        *)                if [[ -z "$1" ]] ; then
+                              help
+                              exit 0
+                          fi
+                          echo "ERROR:  '$1' is not a valid command. See '$PROGNAME --help'." 1>&2
+                          exit 1
+                          ;;
+    esac
+}
+
+
+function long_to_short_options() {
+    # translate --gnu-long-options to -g (short options)
+    # for all possible commands
+    local args=()
+    local arg=
+    for arg; do
+        case "$arg" in
+            # --help)           help && exit 0;;
+            --help)           HELP_FLAG=$arg ;;
+            --config)         args+=( -c ) ;;
+            --host)           args+=( -h ) ;;
+            --port)           args+=( -p ) ;;
+            --user)           args+=( -U ) ;;
+            --database)       args+=( -d ) ;;
+            # rest
+            --dry-run)        args+=( -0 ) ;; # for deploy & sql
+            --install)        args+=( -i ) ;; # for deploy & sql
+            --silent)         args+=( -s ) ;; # for list & sql
+            --yes)            args+=( -y ) ;; # for deploy
+            --verbose)        args+=( -v ) ;; # for deploy
+            --both)           args+=( -b ) ;; # for list
+            --local)          args+=( -l ) ;; # for list
+            --applied)        args+=( -a ) ;; # for list
+            # error out if we encounter other --unknown commands
+            --*)              echo "ERROR:  illegal option '$arg'. See '$PROGNAME --help'." 1>&2; exit 1; ;;
+            *)                args+=( "$arg" ) ;;
+        esac
+    done
+
+    SHORT_OPTIONS=("${args[@]}")
+
+    return 0
+}
+
+
+function read_common_db_args() {
+    # read config / DB connection parameters (for all commands)
+    local unprocessed_args=() # init. pass-through array
+    while getopts ":c:h:p:U:d:y" optname
+    do
+        case "$optname" in
+            "c") param_config=$OPTARG;;
+            "h") param_dbhost=$OPTARG ;;
+            "p") param_dbport=$OPTARG ;;
+            "U") param_dbuser=$OPTARG ;;
+            "d") param_database=$OPTARG ;;
+            "y") param_disable_prompt=1 ;;
+            ":") echo "ERROR:  option '-$OPTARG' requires an argument. See '$PROGNAME --help'." 1>&2
+                 exit 1
+                 ;;
+            *) # pass-thru option, possibly followed by an argument
+                  unprocessed_args+=( "-$OPTARG" ) # add to pass-through array
+                  # see if the next arg is an option, and, if not,
+                  # add it to the pass-through array and skip it
+                  if [[ ${@: OPTIND:1} != -* ]]; then
+                    unprocessed_args+=( "${@: OPTIND:1}" )
+                    (( ++OPTIND ))
+                  fi
+                  ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    unprocessed_args+=( "$@" )  # append remaining args. (operands), if any
+    
+    PASS_THROUGH_ARGS=("${unprocessed_args[@]}")
+
+    return 0
+}
+
+
+function deal_with_missing_args() {
+    # Defaults
+    local default_host='localhost'
+    local default_port='5432'
+    local default_dbuser='postgres'
+    local default_dbname='demodb'
+
+    # process parameters
+
+    # server host
+    DBHOST=$(read_input "$default_host" "Enter destination hostname [$default_host]: " "$DBHOST")
+
+    # server port
+    DBPORT=$(read_input "$default_port" "Enter destination port [$default_port]: " "$DBPORT")
+
+    # database user
+    DBUSER=$(read_input "$default_dbuser" "Enter destination user [$default_dbuser]: " "$DBUSER")
+
+    # database
+    DATABASE=$(read_input "$default_dbname" "Enter destination database [$default_dbname]: " "$DATABASE")
+
+    return 0
+}
+
+
+function main() {
+    local PGPATCH_COMMAND=
+    local COMMAND_SCRIPT=
+    # check if command is valid
+    check_command "$@"
+
+    # shortened args stored here
+    local HELP_FLAG=
+    local SHORT_OPTIONS=()
+    long_to_short_options "${@:2}"
+
+    # display help for commands
+    if [[ -n $HELP_FLAG ]] ; then
+        $COMMAND_SCRIPT '--help'
+        exit 0
+    fi;
+
+    # run commands that can be run without db connection
+    if [[ "$PGPATCH_COMMAND" == 'add' ]] ; then
+        $COMMAND_SCRIPT "${SHORT_OPTIONS[@]}"
+        exit 0
+    fi
+
+
+    # echo "SHORT_OPTIONS: ${SHORT_OPTIONS[@]}"
+
+    local param_config=
+    local param_dbhost=
+    local param_dbport=
+    local param_dbuser=
+    local param_database=
+    local param_disable_prompt=
+    local PASS_THROUGH_ARGS=()
+
+    read_common_db_args "${SHORT_OPTIONS[@]}"
+
+    # echo "param_config: $param_config"
+    # echo "param_dbhost: $param_dbhost"
+    # echo "param_dbport: $param_dbport"
+    # echo "param_dbuser: $param_dbuser"
+    # echo "param_database: $param_database"
+    # echo "PASS_THROUGH_ARGS: ${PASS_THROUGH_ARGS[@]}"
+
+    # load configs, in this order
+    # ./default.conf -> ~/.pg-patch.conf -> the one supplied via option (if present)
+    read_config "$CURRENT_PATH/default.conf" 'optional'
+    read_config "~/.pg-patch.conf" 'optional'
+    
+    if [[ -n "$param_config" ]] ; then
+        read_config "$param_config" 'mandatory'
+    fi
+    
+    # command-line params override values set in configs
+    DBHOST=${param_dbhost:-$DBHOST}
+    DBPORT=${param_dbport:-$DBPORT}
+    DBUSER=${param_dbuser:-$DBUSER}
+    DATABASE=${param_database:-$DATABASE}
+    DISABLE_PROMPT=${param_disable_prompt:-$DISABLE_PROMPT}
+
+    deal_with_missing_args
+
+    # echo "-- Final db params to pass:"
+    # echo "--   DBHOST:   $DBHOST"
+    # echo "--   DBPORT:   $DBPORT"
+    # echo "--   DBUSER:   $DBUSER"
+    # echo "--   DATABASE: $DATABASE"
+
+    # run commands that require db connection
+    local command_db_args="-h $DBHOST -p $DBPORT -U $DBUSER -d $DATABASE"
+
+    if [[ "$PGPATCH_COMMAND" == 'deploy' && $DISABLE_PROMPT -ne 0 ]] ; then
+        $COMMAND_SCRIPT "$command_db_args" "${PASS_THROUGH_ARGS[@]}" '-y'
+    else
+        $COMMAND_SCRIPT "$command_db_args" "${PASS_THROUGH_ARGS[@]}"
+    fi
+    
+    exit 0
+}
+
+main "$@"

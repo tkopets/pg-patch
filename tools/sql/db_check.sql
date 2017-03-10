@@ -1,7 +1,7 @@
 -- psql -Xq -h 127.0.0.1 -p 5432 -d demodb -U demodb_owner -f tools/sql/db_check.sql  -v appname='demodb'
 -- check database precoditions
-set pgpatch_vars.appname = :"appname";
-set pgpatch_vars.db_check_result = '';
+set pgpatch.appname = :"appname";
+set pgpatch.db_check_result = '';
 
 
 DO language plpgsql $$
@@ -25,14 +25,14 @@ BEGIN
     THEN
         BEGIN
             -- what's your name?
-            IF ( SELECT name FROM _v.application_name ) <> current_setting('pgpatch_vars.appname') THEN
+            IF ( SELECT name FROM _v.application_name ) <> current_setting('pgpatch.appname') THEN
                 RAISE EXCEPTION '%',
                       format('Database contains application different than %L',
-                             current_setting('pgpatch_vars.appname')
+                             current_setting('pgpatch.appname')
                       );
             ELSE
                 -- patch
-                PERFORM set_config('pgpatch_vars.db_check_result', 'P', false);
+                PERFORM set_config('pgpatch.db_check_result', 'P', false);
             END IF;
         EXCEPTION WHEN undefined_table THEN
             RAISE EXCEPTION '%', 'Table _v.application_name does not exist. ';
@@ -59,7 +59,7 @@ BEGIN
                 RAISE EXCEPTION '%', format('Database %L is not empty',current_database());
             ELSE
                 -- install versioning
-                PERFORM set_config('pgpatch_vars.db_check_result', 'I', false);
+                PERFORM set_config('pgpatch.db_check_result', 'I', false);
                 NULL;
             END IF;
         ELSIF array_length(va_schemas, 1) >= 1 THEN
@@ -70,4 +70,4 @@ BEGIN
 END;
 $$;
 
-select current_setting('pgpatch_vars.db_check_result');
+select current_setting('pgpatch.db_check_result');

@@ -2,9 +2,9 @@
 -- audit trigger function
 -- -----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION audit.if_modified_func() RETURNS TRIGGER AS $body$
+CREATE OR REPLACE FUNCTION public.if_modified_func() RETURNS TRIGGER AS $body$
 DECLARE
-    audit_row audit.logged_actions;
+    audit_row public.logged_actions;
     include_values boolean;
     log_diffs boolean;
     h_old hstore;
@@ -56,11 +56,11 @@ BEGIN
     ELSIF (TG_LEVEL = 'STATEMENT' AND TG_OP IN ('INSERT','UPDATE','DELETE','TRUNCATE')) THEN
         audit_row.statement_only = 't';
     ELSE
-        RAISE EXCEPTION '[audit.if_modified_func] - Trigger func added as trigger for unhandled case: %, %',TG_OP, TG_LEVEL;
+        RAISE EXCEPTION '[if_modified_func] - Trigger func added as trigger for unhandled case: %, %',TG_OP, TG_LEVEL;
         RETURN NULL;
     END IF;
 
-    INSERT INTO audit.logged_actions VALUES (audit_row.*);
+    INSERT INTO public.logged_actions VALUES (audit_row.*);
 
     RETURN NULL;
 END;
@@ -75,22 +75,22 @@ CREATE TRIGGER audit_trigger_row
   AFTER INSERT OR UPDATE OR DELETE
   ON public.demo_table
   FOR EACH ROW
-  EXECUTE PROCEDURE audit.if_modified_func('true');
+  EXECUTE PROCEDURE public.if_modified_func('true');
 
 CREATE TRIGGER audit_trigger_stm
   AFTER TRUNCATE
   ON public.demo_table
   FOR EACH STATEMENT
-  EXECUTE PROCEDURE audit.if_modified_func('true');
+  EXECUTE PROCEDURE public.if_modified_func('true');
 
 CREATE TRIGGER audit_trigger_row
   AFTER INSERT OR UPDATE OR DELETE
   ON public.demo_table2
   FOR EACH ROW
-  EXECUTE PROCEDURE audit.if_modified_func('true');
+  EXECUTE PROCEDURE public.if_modified_func('true');
 
 CREATE TRIGGER audit_trigger_stm
   AFTER TRUNCATE
   ON public.demo_table2
   FOR EACH STATEMENT
-  EXECUTE PROCEDURE audit.if_modified_func('true');
+  EXECUTE PROCEDURE public.if_modified_func('true');

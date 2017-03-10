@@ -1,14 +1,16 @@
-﻿-- -----------------------------------------------------------------------------
+﻿-- before_patch.sql contents below
+
+-- -----------------------------------------------------------------------------
 -- set search path, drop recreatable objects
 -- -----------------------------------------------------------------------------
 
-SET search_path = audit, public;
+SET search_path = public;
 
 
 CREATE OR REPLACE FUNCTION public.tmp_drop_recreatable_objects()
 RETURNS INTEGER AS $BODY$
 DECLARE
-  vt_schema  TEXT[] NOT NULL DEFAULT array['audit', 'public'];
+  vt_schema  TEXT[] NOT NULL DEFAULT array['public'];
   vt_curstmt TEXT;
   vi_count INTEGER NOT NULL DEFAULT 0;
   BEGIN

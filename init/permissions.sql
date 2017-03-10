@@ -1,2 +1,2 @@
 -- permissions
-REVOKE ALL ON audit.logged_actions FROM public;
+REVOKE ALL ON public.logged_actions FROM public;

@@ -32,17 +32,18 @@ echo "Detected OS: ${OSTYPE//[0-9.]}"
 
 echo "Checking required apps..."
 # os independent utils
-echo "psql           $(echo_if $(program_is_installed psql))"
-echo "perl           $(echo_if $(program_is_installed perl))"
-echo "tsort          $(echo_if $(program_is_installed tsort))"
-echo "hg             $(echo_if $(program_is_installed hg))"
-echo "git            $(echo_if $(program_is_installed git))"
+echo "psql  $(echo_if $(program_is_installed psql))"
+echo "perl  $(echo_if $(program_is_installed perl))"
+echo "tsort $(echo_if $(program_is_installed tsort))"
+echo "git   $(echo_if $(program_is_installed git))"
+echo "hg    $(echo_if $(program_is_installed hg))"
+echo "tee   $(echo_if $(program_is_installed tee))"
 
 # os dependent utils
 if [[ ${OSTYPE//[0-9.]} == "solaris" ]]; then
-    echo "gsed           $(echo_if $(program_is_installed gsed))"
-    echo "ggrep          $(echo_if $(program_is_installed ggrep))"
+    echo "gsed  $(echo_if $(program_is_installed gsed))"
+    echo "ggrep $(echo_if $(program_is_installed ggrep))"
 else
-    echo "sed            $(echo_if $(program_is_installed sed))"
-    echo "grep           $(echo_if $(program_is_installed grep))"
+    echo "sed   $(echo_if $(program_is_installed sed))"
+    echo "grep  $(echo_if $(program_is_installed grep))"
 fi

@@ -9,8 +9,7 @@ BEGIN
     END IF;
 
     -- rollback DDL
-    DROP SCHEMA audit CASCADE;
-    DROP EXTENSION hstore;
+    DROP TABLE public.logged_actions;
 
 END;
 $BODY$;

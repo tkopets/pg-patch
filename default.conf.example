@@ -1,0 +1,10 @@
+# default db connection configuration for pg-patch
+
+# connection settings
+DBHOST='127.0.0.1'
+DBPORT=5432
+DBUSER='demodb_owner'
+DATABASE='demodb'
+
+# other options
+DISABLE_PROMPT=1  # 0 = ask for confirmation, 1 = just do the stuff
