@@ -54,17 +54,4 @@ select case when a is null     and l.filename is not null then '*   '
        patch as patch
 from   applied_patches a
        full outer join local_patches l USING (patch)
-order  by a is null, a.applied_ts, coalesce(a.install_order, l.install_order);" |
-  sed_bin 's/^/    /';     # prepend some spaces to each line
-
-
-# select case when a is null     and l.filename is not null then '*   new    '
-#             when a is null     and l.filename is null     then '* ! new    '
-#             when a is not null and l.filename is null     then '+ ! applied'
-#             else                                               '+   applied'
-#        end  ||
-#        '   ' ||
-#        patch as patch
-# from   applied_patches a
-#        full outer join local_patches l USING (patch)
-# order  by a is null, a.applied_ts, coalesce(a.install_order, l.install_order);"
+order  by a is null, a.applied_ts, coalesce(a.install_order, l.install_order);"

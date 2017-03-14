@@ -16,32 +16,24 @@ DRY_RUN=0;
 
 function help {
     cat <<EOF
-This is help for pgpatch sql command, that is used to generate SQL
-for patching DB - the output could be applied using psql to any DB.
+pg-patch sql command is used to generate SQL for patching DB
+the output could be applied using psql to any DB.
 
-Default options could be supplied in database.conf file.
-Example file could be found in database.conf.default
+usage: pg-patch sql [-c file] [-h host] [-p port] [-U user] [-d database]
+                    [-i] [-0] [-s]
 
-List of options:
-  --help              - prints this message
+For deatiled information on connection options and config file see:
+  pg-patch --help
 
-Connection settings:
-  -h --host <host>    - target host name
-  -p --port <port>    - database server port name
-  -U --user <user>    - database user
-  -d --database <db>  - target database name
-
-Behaviour flags
-  -0 --dry-run  - SQL will contain rollback at the end (for testing)
-  -s --silent   - silently ignore patch dependency warnings
-  -i --install  - install pg-patch, SQL will contain both pg-patch and patches
+Additional options:
+  -i --install   install pg-patch, SQL will contain both pg-patch and patches
+  -0 --dry-run   SQL will contain rollback at the end (for testing)
+  -s --silent    silently ignore patch dependency warnings
 
 Usage examples:
-  pgpatch sql -h localhost -p 5432 -U demodb -d demodb
-  pgpatch sql --install --silent -h localhost -p 5432 -U demodb -d demodb
-  pgpatch sql --dry-run -h localhost -p 5432 -U demodb -d demodb
-  pgpatch sql -c path/to/database.conf
-  pgpatch sql # assuming default config is present
+  ./pg-patch sql
+  ./pg-patch sql --dry-run
+  ./pg-patch sql --install
 EOF
 }
 

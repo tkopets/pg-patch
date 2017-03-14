@@ -2,7 +2,6 @@
 
 set -e
 
-readonly PROGNAME=$(basename $0)
 readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
 
 # default parameters
@@ -15,34 +14,38 @@ DISABLE_PROMPT=0
 
 function help {
     cat <<EOF
-This is help for $PROGNAME script
-This is a helper script for updating and patching database
+pg-patch is a utility for patching database and tracking patches.
 
-Default options could be passed to $PROGNAME with database.conf file.
-Example file could be found in database.conf.default
+usage: pg-patch <command> [--help]
+                [-c file] [-h host] [-p port] [-U user] [-d database]
 
-Script will attempt to find repository information from git or hg repository.
-If none is found script will look into file repo.info (see repo.info.example).
+Available commands are:
+  add      Create new patch from template
+  list     List local, applied or both local and applied (default) patches
+  deploy   Deploy all available patches
+  sql      Output SQL commands for patching database
+  dot      Outputs local patches in Graphviz dot format
+  install  Installs pg-patch to database (NOT IMPLEMENTED !)
 
-List of options:
-  --help              - prints this message.
+To see help related to command use:
+  pg-patch <command> --help
 
-Connection settings:
-  -h --host <host>    - target host name
-  -d --database <db>  - target database name
-  -p --port <port>    - database server port name
-  -U --user <user>    - database user
+All commands except 'add' require a connection target DB.
+Default options could be set in default.conf file (see default.conf.example).
+You can supply your own config file with '-c' option.
 
-Behaviour flags:
-  -y --yes      - disable the confirmation prompt
-  -v --verbose  - verbose mode, prints all commands sent to database
-  -0 --dry-run  - dry run mode, rollbacks all changes in the end (for testing)
+Common options (for all commands, except 'add'):
+  -c --config <file>   read options from config file
+  -h --host <host>     target host name
+  -p --port <port>     database server port name
+  -U --user <user>     database user
+  -d --database <db>   target database name
+  -y --yes             disable the confirmation prompt
 
 Usage examples:
-  ./$PROGNAME -d demodb -h localhost -U demodb_owner -p 5432
-  ./$PROGNAME -d demodb -h localhost -U demodb_owner -p 5432 -s
-  ./$PROGNAME -c path/to/database.conf
-  ./$PROGNAME -c path/to/database.conf
+  ./pg-patch add second-patch first-patch
+  ./pg-patch list
+  ./pg-patch deploy -c test_db.conf
 EOF
 }
 
@@ -78,7 +81,7 @@ function read_config() {
 
     # print help if only command is specified and config not found
     if [[ "$mandatory" == 'mandatory' ]] && [[ ! -f $config ]] ; then
-        echo "ERROR:  config file '$config' not found. See '$PROGNAME --help'." 1>&2
+        echo "ERROR:  config file '$config' not found. See 'pg-patch --help'." 1>&2
         exit 1
     fi
 
@@ -116,7 +119,7 @@ function check_command() {
                               help
                               exit 0
                           fi
-                          echo "ERROR:  '$1' is not a valid command. See '$PROGNAME --help'." 1>&2
+                          echo "ERROR:  '$1' is not a valid command. See 'pg-patch --help'." 1>&2
                           exit 1
                           ;;
     esac
@@ -147,7 +150,7 @@ function long_to_short_options() {
             --local)          args+=( -l ) ;; # for list
             --applied)        args+=( -a ) ;; # for list
             # error out if we encounter other --unknown commands
-            --*)              echo "ERROR:  illegal option '$arg'. See '$PROGNAME --help'." 1>&2; exit 1; ;;
+            --*)              echo "ERROR:  illegal option '$arg'. See 'pg-patch --help'." 1>&2; exit 1; ;;
             *)                args+=( "$arg" ) ;;
         esac
     done
@@ -170,7 +173,7 @@ function read_common_db_args() {
             "U") param_dbuser=$OPTARG ;;
             "d") param_database=$OPTARG ;;
             "y") param_disable_prompt=1 ;;
-            ":") echo "ERROR:  option '-$OPTARG' requires an argument. See '$PROGNAME --help'." 1>&2
+            ":") echo "ERROR:  option '-$OPTARG' requires an argument. See 'pg-patch --help'." 1>&2
                  exit 1
                  ;;
             *) # pass-thru option, possibly followed by an argument

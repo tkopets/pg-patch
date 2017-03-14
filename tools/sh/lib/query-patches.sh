@@ -54,20 +54,6 @@ Usage examples:
 EOF
 }
 
-check_versioning_query="
-do
-'
-begin
-    if not exists(select 1 from pg_catalog.pg_namespace where nspname = ''_v'') then
-        raise exception ''pg-patch is not installed'';
-    end if;
-
-    return;
-end;
-';
-"
-
-
 check_depend_patches_query="
 do
 '
@@ -171,6 +157,7 @@ function query_patches() {
     local extra_psql_args=$2
     local query_results=''
     local sql_header_file="$DIR/../../sql/header.sql"
+    local sql_versioning_file="$DIR/../../sql/install_versioning.sql"
 
     # sane default
     if [[  $extra_psql_args = '' ]]
@@ -186,7 +173,7 @@ function query_patches() {
         echo
         echo "SET client_min_messages = error;"
         echo
-        echo $check_versioning_query
+        sed_strip_utf8_bom $sql_versioning_file
         echo
     )
 

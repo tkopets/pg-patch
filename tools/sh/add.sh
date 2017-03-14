@@ -4,20 +4,18 @@ CURRENT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
 function help {
     cat <<EOF
-usage: pgpatch add <patch> [<dependency> <dependency2> ...]
+pg-patch add command is used to create a new patch from a template.
 
-pgpatch add command is used to create a new patch from a template.
+usage: pg-patch add <patch> [<dependency> <dependency2> ...]
 
-  patch      - name of new patch to be added (mandatory)
-  dependency - name of patch which is a dependency for <patch> (optional)
-
-List of options:
-  --help     - prints this message
+Arguments:
+  patch        name of new patch to be added in patches folder (mandatory)
+  dependency   name of patch which is a dependency for <patch> (optional)
 
 Usage examples:
-  pgpatch add initial
-  pgpatch add second initial
-  pgpatch add user-permissions users permissions
+  ./pg-patch add initial
+  ./pg-patch add second initial
+  ./pg-patch add user-permissions users permissions
 EOF
 }
 

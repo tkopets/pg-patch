@@ -2,7 +2,6 @@
 
 set -e
 
-readonly PROGNAME=$(basename $0)
 readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
 readonly PGPATCH_PATH="$( cd "$( dirname "$( dirname "$( dirname "$0" )" )" )" && pwd )"
 
@@ -36,36 +35,26 @@ function sed_bin() {
 
 function help {
     cat <<EOF
+pg-patch delpoy command is used to apply patches to target database.
 
-This is help for $PROGNAME script
-This is a helper script for updating and patching database
+usage: pg-patch delpoy [-c file] [-h host] [-p port] [-U user] [-d database]
+                       [-0] [-s] [-v] [-y]
 
-Default options could be passed to $PROGNAME with database.conf file.
-Example file could be found in database.conf.default
+For deatiled information on connection options and config file see:
+  pg-patch --help
 
-Script will attempt to find repository information from git or hg repository.
-If none is found - script will look into file repo.info (see example repo.info.example)
+pg-patch will attempt to find repository information from git or hg repository.
+If none is found script will look into file repo.info (see example repo.info.example).
 
-List of options:
-
- --help       - prints this message.
-
-Connection settings:
- -h --host <host>         - target host name
- -d --database <database> - target database name
- -p --port <port>         - database server port name
- -U --user <user>         - database user
-
-Behaviour flags
- -s --silent  - silent mode. Will not ask for actions confirmation
- -v --verbose - verbose mode. Will print all commands sent to database
- -0 --dry-run - dry run mode. Will rollback all changes in the end. Useful for testing.
+Additional options:
+  -0 --dry-run   rollbacks all changes in the end (for testing)
+  -s --silent    silently ignore patch dependency warnings
+  -v --verbose   verbose mode prints all commands sent to database
+  -y --yes       disable the confirmation prompt
 
 Usage examples:
- ./run.sh -d demodb -h localhost -U demodb_owner -p 5432
- ./run.sh -d demodb -h localhost -U demodb_owner -p 5432 -s
- ./run.sh -c path/to/database.conf
-
+  ./pg-patch deploy --dry-run
+  ./pg-patch deploy -c test_db.conf
 EOF
 }
 
@@ -133,7 +122,7 @@ function read_args() {
 
 function notify_and_confirm() {
     cat <<EOF
-You are going to apply changes to
+You are going to deploy patches to
   host:     $v_host
   port:     $v_port
   username: $v_dbuser

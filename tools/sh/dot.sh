@@ -9,28 +9,18 @@ readonly PATCHES_LIST="$PGPATCH_PATH/patches/*.sql"
 
 function help {
     cat <<EOF
-This is help for pgpatch dot command, that is used to output
-local patches in Graphviz dot format (for visualization).
+pg-patch dot command is used to output local patches in Graphviz dot format.
 
-Default options could be supplied in database.conf file.
-Example file could be found in database.conf.default
+usage: pg-patch dot [-c file] [-h host] [-p port] [-U user] [-d database] [-s]
 
-List of options:
- --help              - prints this message.
+For deatiled information on connection options and config file see:
+  pg-patch --help
 
-Connection settings:
- -h --host <host>    - target host name
- -p --port <port>    - database server port name
- -U --user <user>    - database user
- -d --database <db>  - target database name
-
-Behaviour flags:
- -s --silent         - silently ignore patch dependency warnings
+Additional options:
+ -s --silent   silently ignore patch dependency warnings
 
 Usage examples:
- pgpatch dot -h localhost -p 5432 -U demodb -d demodb
- pgpatch dot -c path/to/database.conf
- pgpatch dot # assuming default config is present
+ ./pg-patch dot
 EOF
 }
 

@@ -21,5 +21,4 @@ select case when p is null
        ts.node as patch
 from   _v.topological_sort( (select graph from patches) ) ts
       left join tmp_local_patches p on ts.node = p.patch_name
-order by sort_order desc;" |
-  sed_bin 's/^/    /';     # prepend some spaces to each line
+order by sort_order desc;"

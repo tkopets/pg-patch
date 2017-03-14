@@ -9,31 +9,34 @@ readonly PATCHES_LIST="$PGPATCH_PATH/patches/*.sql"
 
 function help {
     cat <<EOF
-This is help for pgpatch list command, that is used to list
-local patches, applied or both local and applied.
+pg-patch list command is used to list local patches, applied or both
+local and applied patches (default).
 
-Default options could be supplied in database.conf file.
-Example file could be found in database.conf.default
+usage: pg-patch list [-c file] [-h host] [-p port] [-U user] [-d database]
+                     [ [-b] | [-l] | [-a] ] [-v] [-s]
 
-List of options:
- --help              - prints this message.
+For deatiled information on connection options and config file see:
+  pg-patch --help
 
-Connection settings:
- -h --host <host>    - target host name
- -p --port <port>    - database server port name
- -U --user <user>    - database user
- -d --database <db>  - target database name
+Additional options:
+  -b --both      list both local and applied patches (default)
+  -l --local     list local patches in install order
+  -a --applied   list already applied patches
+  -v --verbose   verbose mode will print more info about the patches
+  -s --silent    silently ignore patch dependency warnings
 
-Behaviour flags:
- -s --silent         - silently ignore patch dependency warnings
- -v --verbose        - verbose mode with more info about the patches
+Applied patches denoted by '+', local not yet applied patches denoted by '*'.
+
+list will exit with error if patch is applied and respective local patch is
+missing or local patch is referencing non-existing patch unless '-s' is set.
+
+If '-s' is set then missing patches are marked with '!' (exclamation mark) in
+short format and filename is empty in verbose output ('-v' or '--verbose').
 
 Usage examples:
- pgpatch list -h localhost -p 5432 -U demodb -d demodb
- pgpatch list --local --silent -h localhost -p 5432 -U demodb -d demodb
- pgpatch list --applied -h localhost -p 5432 -U demodb -d demodb
- pgpatch list -c path/to/database.conf
- pgpatch list # assuming default config is present
+  ./pg-patch list
+  ./pg-patch list --local
+  ./pg-patch list --applied
 EOF
 }
 

@@ -22,5 +22,4 @@ select '    ' ||
        ts.node as patch
 from   _v.topological_sort( (select graph from patches) ) ts
       left join _v.patches p on ts.node = p.patch_name
-order by p.applied_ts, ts.sort_order desc;" |
-  sed_bin 's/^/    /';     # prepend some spaces to each line
+order by p.applied_ts, ts.sort_order desc;"

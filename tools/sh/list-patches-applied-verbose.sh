@@ -19,7 +19,14 @@ with patches as (
     ) w
 )
 select ts.node as patch,
-       p.applied_ts::timestamp(0) as applied
+       p.applied_ts::timestamp(0) as applied,
+       case when h.revision is not null and h.branch is not null
+                 then format('%s [%s]', left(h.revision, 7), h.branch)
+            when h.revision is not null and h.branch is null
+                 then left(h.revision, 7)
+            else null
+        end as revision
 from   _v.topological_sort( (select graph from patches) ) ts
       left join _v.patches p on ts.node = p.patch_name
+      left join _v.patch_history h on p.applied_ts = h.applied_ts
 order by p.applied_ts, ts.sort_order desc;"  "--quiet --pset pager=off --pset footer=off"
