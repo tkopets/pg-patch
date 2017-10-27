@@ -66,41 +66,38 @@ function grep_bin() {
     fi
 }
 
-function get_module_path {
+function get_recreatable_objects_path {
     local CODE_PATH=''
-    if [[ -d "$DB_PATH/code/functions/$1/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/functions/$1/"
+    if [[ -d "$DB_PATH/code/functions/" ]] ; then
+        CODE_PATH="$CODE_PATH $DB_PATH/code/functions/"
     fi
-    if [[ -d "$DB_PATH/code/views/$1/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/views/$1/"
+    if [[ -d "$DB_PATH/code/views/" ]] ; then
+        CODE_PATH="$CODE_PATH $DB_PATH/code/views/"
     fi
-    if [[ -d "$DB_PATH/code/rules/$1/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/rules/$1/"
+    if [[ -d "$DB_PATH/code/rules/" ]] ; then
+        CODE_PATH="$CODE_PATH $DB_PATH/code/rules/"
     fi
-    if [[ -d "$DB_PATH/code/triggers/$1/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/triggers/$1/"
+    if [[ -d "$DB_PATH/code/triggers/" ]] ; then
+        CODE_PATH="$CODE_PATH $DB_PATH/code/triggers/"
+    fi
+    if [[ -d "$DB_PATH/code/other/" ]] ; then
+        CODE_PATH="$CODE_PATH $DB_PATH/code/other/"
     fi
 
     echo $CODE_PATH
 }
 
-function install_modules {
+function install_recreatable_objects {
 
     local MODULE_PATH=''
 
-    MODULE_PATH="$MODULE_PATH $(get_module_path core)"
-    MODULE_PATH="$MODULE_PATH $(get_module_path general)"
-    MODULE_PATH="$MODULE_PATH $(get_module_path history)"
+    MODULE_PATH="$(get_recreatable_objects_path)"
 
     export -f sed_bin
     export -f sed_strip_utf8_bom
-    find $MODULE_PATH -name '*.sql' -type f -print0 \
+    find $MODULE_PATH -name '*.sql' -type f -print0 | sort -z \
         | xargs -0 -I{} bash -c 'sed_strip_utf8_bom {}'
 
-}
-
-function load_permissions() {
-    sed_strip_utf8_bom $DB_PATH/init/permissions.sql
 }
 
 function load_versioning() {
@@ -245,10 +242,7 @@ function run_all() {
     load_patches "$patch_list_ordered"
 
     # restore recreatable objects
-    install_modules
-
-    # apply permissions for db objects
-    load_permissions
+    install_recreatable_objects
 
     commit_or_rollback
 }
