@@ -139,12 +139,12 @@ function run_actions() {
     local dbinstall=''
 
     echo "Checking database..."
-    patch_action=$(psql -tXq -h $v_host -p $v_port -U $v_dbuser -d $v_db -f $PGPATCH_PATH/tools/sql/db_check.sql  -v appname='demodb' | tr -d '[[:space:]]')
+    patch_action=$(psql -tXq -h $v_host -p $v_port -U $v_dbuser -d $v_db -f $PGPATCH_PATH/tools/sql/patch_or_install.sql | tr -d '[[:space:]]')
 
-    if [ "$patch_action" = 'I' ] ; then
+    if [ "$patch_action" = 'install' ] ; then
         echo "Empty database, installing pg-patch and deploying all patches."
         dbinstall='--install'
-    elif [ "$patch_action" = 'P' ] ; then
+    elif [ "$patch_action" = 'patch' ] ; then
         echo "Deploying patches."
     else
         echo "Database preconditions failed."

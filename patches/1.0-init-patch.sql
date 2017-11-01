@@ -1,36 +1,36 @@
 /*
- * Do not change this code except lines containing patch name, author name
- * and lines between ## patch functionality start, functionality end.
- * DO NOT CHANGE names of variables, because there are scripts that use them.
+ * It is *VERY IMPORTANT* that code below does not do anything
+ * if function _v.register_patch returned false!
  */
 
-DO
-LANGUAGE plpgsql $BODY$
-DECLARE
-    vt_patch_name CONSTANT TEXT   := '1.0-init-patch';
-    vt_author     CONSTANT TEXT   := 'Anonymous <anonymous@example.com>';
-    -- list required patches in array below
-    va_depend_on           TEXT[] := ARRAY[]::TEXT[];
-BEGIN
-    -- try to register patch, skip if already applied
-    IF NOT _v.register_patch(vt_patch_name, vt_author, va_depend_on) THEN
-        RETURN;
-    END IF;
+do
+language plpgsql
+$body$
+declare
+    -- change patch name, author and list of required patches
+    _patch   text   = '1.0-init-patch';  -- usually same as file name without .sql extension
+    _author  text   = 'John Doe <john.doe@example.com>';
+    _depends text[] = '{}';
+begin
+    -- try to register patch but do nothing if is not registered
+    if not _v.register_patch(_patch, _author, _depends) then
+        return;
+    end if;
 
-    -- ## patch fuctionality start here  ##
+    -- ## patch fuctionality starts here  ##
 
-    CREATE TABLE public.demo_table (
-        id bigserial PRIMARY KEY,
+    create table public.demo_table (
+        id serial primary key,
         val1 integer,
         val2 text
     );
 
     -- initial data
-    INSERT INTO demo_table(val1, val2) VALUES(1,'a');
-    INSERT INTO demo_table(val1, val2) VALUES(2,'b');
-    INSERT INTO demo_table(val1, val2) VALUES(3,'c');
-    INSERT INTO demo_table(val1, val2) VALUES(4,'d');
+    insert into demo_table(val1, val2) values(1,'a');
+    insert into demo_table(val1, val2) values(2,'b');
+    insert into demo_table(val1, val2) values(3,'c');
+    insert into demo_table(val1, val2) values(4,'d');
 
     -- ## patch functionality ends here  ##
-END;
-$BODY$;
+end;
+$body$;

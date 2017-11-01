@@ -20,12 +20,12 @@ usage: pg-patch <command> [--help]
                 [-c file] [-h host] [-p port] [-U user] [-d database]
 
 Available commands are:
+  install  Installs pg-patch to database
   add      Create new patch from template
   list     List local, applied or both local and applied (default) patches
   deploy   Deploy all available patches
   sql      Output SQL commands for patching database
   dot      Outputs local patches in Graphviz dot format
-  install  Installs pg-patch to database (NOT IMPLEMENTED !)
 
 To see help related to command use:
   pg-patch <command> --help

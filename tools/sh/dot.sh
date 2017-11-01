@@ -33,14 +33,6 @@ function run_dot() {
         if [[ $var == "--help" ]] ; then
             help
             exit 0
-        # elif [[ $var == "--both" ]] || [[ $var == "-b" ]] ; then
-        #     LIST_BOTH=1
-        # elif [[ $var == "--local" ]] || [[ $var == "-l" ]] ; then
-        #     LIST_LOCAL=1
-        # elif [[ $var == "--applied" ]] || [[ $var == "-a" ]] ; then
-        #     LIST_APPLIED=1
-        # elif [[ $var == "--verbose" ]] || [[ $var == "-v" ]] ; then
-        #     LIST_VERBOSE=1
         else
             unprocessed_args+=("$var")
         fi

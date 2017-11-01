@@ -1,9 +1,9 @@
 # default db connection configuration for pg-patch
 
 # connection settings
-DBHOST='127.0.0.1'
+DBHOST='localhost'
 DBPORT=5432
-DBUSER='demodb_owner'
+DBUSER='postgres'
 DATABASE='demodb'
 
 # other options

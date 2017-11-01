@@ -17,31 +17,6 @@ BEGIN
     CREATE SCHEMA _v;
     COMMENT ON SCHEMA _v IS 'Schema for versioning data and functionality.';
 
-    CREATE TABLE _v.application_name(
-        name text not null
-    );
-
-    CREATE UNIQUE INDEX application_name_1_row ON _v.application_name((name IS NOT NULL));
-
-    CREATE OR REPLACE FUNCTION _v.application_name_delete_prohibit()
-    RETURNS trigger
-    AS $$
-    BEGIN
-        RAISE EXCEPTION '%', 'Removing application name is not allowed';
-    END;
-    $$
-    LANGUAGE plpgsql;
-
-    CREATE TRIGGER application_name_delete_trg
-    BEFORE DELETE ON _v.application_name
-    FOR EACH ROW
-    EXECUTE PROCEDURE _v.application_name_delete_prohibit();
-
-    CREATE TRIGGER application_name_truncate_trg
-    BEFORE TRUNCATE ON _v.application_name
-    FOR EACH STATEMENT
-    EXECUTE PROCEDURE _v.application_name_delete_prohibit();
-
     CREATE TABLE _v.patch_history (
     applied_ts timestamptz NOT NULL DEFAULT now(),
     revision   text,
