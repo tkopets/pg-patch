@@ -68,6 +68,9 @@ function grep_bin() {
 
 function get_recreatable_objects_path {
     local CODE_PATH=''
+    if [[ -d "$DB_PATH/code/types/" ]] ; then
+        CODE_PATH="$CODE_PATH $DB_PATH/code/types/"
+    fi
     if [[ -d "$DB_PATH/code/functions/" ]] ; then
         CODE_PATH="$CODE_PATH $DB_PATH/code/functions/"
     fi
