@@ -1,7 +1,8 @@
+-- pg-patch header.sql start --
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
-
+-- pg-patch header.sql end --

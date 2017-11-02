@@ -84,19 +84,6 @@ function get_recreatable_objects_path {
     echo $CODE_PATH
 }
 
-function install_recreatable_objects {
-
-    local MODULE_PATH=''
-
-    MODULE_PATH="$(get_recreatable_objects_path)"
-
-    export -f sed_bin
-    export -f sed_strip_utf8_bom
-    find $MODULE_PATH -name '*.sql' -type f -print0 | sort -z \
-        | xargs -0 -I{} bash -c 'sed_strip_utf8_bom {}'
-
-}
-
 function load_versioning() {
     sed_strip_utf8_bom $DB_PATH/tools/sql/install_versioning.sql
 }
@@ -109,28 +96,6 @@ function get_patches_install_order() {
     fi
 
     $DIR/util-patch-files.sh -h $DBHOST -p $DBPORT -U $DBUSER -d $DATABASE $SILENT_FLAG $DB_PATH/patches/*.sql
-}
-
-function load_patches() {
-    # before patch. drop recreatable objects
-    sed_strip_utf8_bom $DB_PATH/tools/sql/before_patch.sql
-
-    echo
-    echo "-- apply patches --"
-    echo
-    # apply incremental changes
-    echo "$@" | xargs -I{} cat {} | sed_strip_utf8_bom
-    
-    #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $DB_PATH/patches/*.sql \
-    #     | xargs -I{} cat {}
-
-    #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $DB_PATH/patches/*.sql \
-    #    | tsort \
-    #    | sed_bin '1!G;h;$!d' \
-    #    | xargs -I{} cat $DB_PATH/patches/{}.sql
-
-    # after patch
-    sed_strip_utf8_bom $DB_PATH/tools/sql/after_patch.sql
 }
 
 function lock_for_patch(){
@@ -171,6 +136,51 @@ function lock_for_patch(){
     echo
 
 }
+
+function load_patches() {
+    # before patch. drop recreatable objects
+    sed_strip_utf8_bom $DB_PATH/tools/sql/before_patch.sql
+
+    echo
+    echo "-- apply patches --"
+    echo
+    # apply incremental changes
+    echo "$@" | xargs -I{} cat {} | sed_strip_utf8_bom
+
+    #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $DB_PATH/patches/*.sql \
+    #     | xargs -I{} cat {}
+
+    #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $DB_PATH/patches/*.sql \
+    #    | tsort \
+    #    | sed_bin '1!G;h;$!d' \
+    #    | xargs -I{} cat $DB_PATH/patches/{}.sql
+
+    # after patch
+    sed_strip_utf8_bom $DB_PATH/tools/sql/after_patch.sql
+}
+
+
+function install_recreatable_objects {
+
+    local MODULE_PATH=''
+
+    MODULE_PATH="$(get_recreatable_objects_path)"
+
+    export -f sed_bin
+    export -f sed_strip_utf8_bom
+    find $MODULE_PATH -name '*.sql' -type f -print0 | sort -z \
+        | xargs -0 -I{} bash -c 'sed_strip_utf8_bom {}'
+
+}
+
+
+function run_user_after_patch_sql {
+    local USER_AFTER_PATCH_FILE="$DB_PATH/patches/util/after_patch.sql"
+    if [[ -f "$USER_AFTER_PATCH_FILE" ]] ; then
+        sed_strip_utf8_bom "$USER_AFTER_PATCH_FILE"
+    fi
+}
+
 
 function commit_or_rollback() {
     # finalize
@@ -240,6 +250,9 @@ function run_all() {
 
     # restore recreatable objects
     install_recreatable_objects
+
+    # run user after patch sql code
+    run_user_after_patch_sql
 
     commit_or_rollback
 }

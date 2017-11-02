@@ -1,1 +1,2 @@
--- after_patch.sql contents below
+-- pg-patch after_patch.sql start --
+-- pg-patch after_patch.sql end --

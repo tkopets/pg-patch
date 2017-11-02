@@ -1,5 +1,6 @@
-set pgpatch.db_check_result = '';
+-- pg-patch patch_or_install.sql start --
 
+set pgpatch.db_check_result = '';
 
 do language plpgsql
 $body$
@@ -47,3 +48,5 @@ end;
 $body$;
 
 select current_setting('pgpatch.db_check_result');
+
+-- pg-patch patch_or_install.sql end --

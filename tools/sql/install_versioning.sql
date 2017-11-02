@@ -1,3 +1,5 @@
+-- pg-patch install_versioning.sql start --
+
 -- This file adds versioning support to database it will be loaded to.
 -- It requires that PL/pgSQL is already loaded - will raise exception otherwise.
 -- All versioning "stuff" (tables, functions) is in "_v" schema.
@@ -317,3 +319,5 @@ BEGIN
 
 END;
 $BODYPGPATCH$;
+
+-- pg-patch install_versioning.sql end --
