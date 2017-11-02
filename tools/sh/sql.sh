@@ -80,9 +80,6 @@ function get_recreatable_objects_path {
     if [[ -d "$DB_PATH/code/triggers/" ]] ; then
         CODE_PATH="$CODE_PATH $DB_PATH/code/triggers/"
     fi
-    if [[ -d "$DB_PATH/code/other/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/other/"
-    fi
 
     echo $CODE_PATH
 }
