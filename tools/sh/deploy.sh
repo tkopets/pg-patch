@@ -2,7 +2,6 @@
 
 set -e
 
-readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
 readonly PGPATCH_PATH="$( cd "$( dirname "$( dirname "$( dirname "$0" )" )" )" && pwd )"
 
 readonly ARGS="$@"

@@ -4,8 +4,7 @@ LIST_LOCAL=0
 LIST_VERBOSE=0
 
 readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
-readonly PGPATCH_PATH="$( cd "$( dirname "$( dirname "$( dirname "$0" )" )" )" && pwd )"
-readonly PATCHES_LIST="$PGPATCH_PATH/patches/*.sql"
+readonly PATCHES_LIST="$PWD/patches/*.sql"
 
 function help {
     cat <<EOF

@@ -31,9 +31,9 @@ get_git_user() {
     if hash git 2>/dev/null; then
         local git_user_name=
         local git_user_email=
-        git_user_name=$(cd $CURRENT_DIR; git config user.name)
+        git_user_name=$(git config user.name)
         git_user_name=${git_user_name:-'Unknown'}
-        git_user_email=$(cd $CURRENT_DIR; git config user.email)
+        git_user_email=$(git config user.email)
         
         git_user="$git_user_name"
         if [ -n "$git_user_email" ]; then
@@ -76,7 +76,7 @@ function main() {
         sed_bin "s/<%name%>/$patch_name/" | \
         sed_bin "s/<%author%>/$git_user/" | \
         sed_bin "s/<%dependencies%>/$patch_dependencies/" | \
-        tee $CURRENT_DIR/../../patches/$patch_name.sql
+        tee $PWD/patches/$patch_name.sql
 }
 
 main "$@"

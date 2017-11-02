@@ -238,6 +238,12 @@ function main() {
         exit 0
     fi;
 
+    ## check if current dir contains .pg-patch file ##
+    if [[ ! -f $PWD/.pg-patch ]] ; then
+        echo "ERROR:  Not a pg-patch folder (.pg-patch file is missing)"
+        exit 1
+    fi
+
     # run commands that can be run without db connection
     if [[ "$PGPATCH_COMMAND" == 'add' ]] ; then
         $COMMAND_SCRIPT "${SHORT_OPTIONS[@]}"
@@ -266,7 +272,7 @@ function main() {
 
     # load configs, in this order
     # ./default.conf -> ~/.pg-patch.conf -> the one supplied via option (if present)
-    read_config "$CURRENT_PATH/default.conf" 'optional'
+    read_config "$PWD/default.conf" 'optional'
     read_config "~/.pg-patch.conf" 'optional'
     
     if [[ -n "$param_config" ]] ; then

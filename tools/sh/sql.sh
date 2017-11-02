@@ -68,20 +68,20 @@ function grep_bin() {
 
 function get_recreatable_objects_path {
     local CODE_PATH=''
-    if [[ -d "$DB_PATH/code/types/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/types/"
+    if [[ -d "$PWD/code/types/" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/types/"
     fi
-    if [[ -d "$DB_PATH/code/functions/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/functions/"
+    if [[ -d "$PWD/code/functions/" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/functions/"
     fi
-    if [[ -d "$DB_PATH/code/views/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/views/"
+    if [[ -d "$PWD/code/views/" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/views/"
     fi
-    if [[ -d "$DB_PATH/code/rules/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/rules/"
+    if [[ -d "$PWD/code/rules/" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/rules/"
     fi
-    if [[ -d "$DB_PATH/code/triggers/" ]] ; then
-        CODE_PATH="$CODE_PATH $DB_PATH/code/triggers/"
+    if [[ -d "$PWD/code/triggers/" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/triggers/"
     fi
 
     echo $CODE_PATH
@@ -98,7 +98,7 @@ function get_patches_install_order() {
         SILENT_FLAG=' -s '
     fi
 
-    $DIR/util-patch-files.sh -h $DBHOST -p $DBPORT -U $DBUSER -d $DATABASE $SILENT_FLAG $DB_PATH/patches/*.sql
+    $DIR/util-patch-files.sh -h $DBHOST -p $DBPORT -U $DBUSER -d $DATABASE $SILENT_FLAG $PWD/patches/*.sql
 }
 
 function lock_for_patch(){
@@ -150,13 +150,13 @@ function load_patches() {
     # apply incremental changes
     echo "$@" | xargs -I{} cat {} | sed_strip_utf8_bom
 
-    #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $DB_PATH/patches/*.sql \
+    #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $PWD/patches/*.sql \
     #     | xargs -I{} cat {}
 
-    #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $DB_PATH/patches/*.sql \
+    #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $PWD/patches/*.sql \
     #    | tsort \
     #    | sed_bin '1!G;h;$!d' \
-    #    | xargs -I{} cat $DB_PATH/patches/{}.sql
+    #    | xargs -I{} cat $PWD/patches/{}.sql
 
     # after patch
     sed_strip_utf8_bom $DB_PATH/tools/sql/after_patch.sql
@@ -178,7 +178,7 @@ function install_recreatable_objects {
 
 
 function run_user_after_patch_sql {
-    local USER_AFTER_PATCH_FILE="$DB_PATH/patches/util/after_patch.sql"
+    local USER_AFTER_PATCH_FILE="$PWD/patches/util/after_patch.sql"
     if [[ -f "$USER_AFTER_PATCH_FILE" ]] ; then
         sed_strip_utf8_bom "$USER_AFTER_PATCH_FILE"
     fi
