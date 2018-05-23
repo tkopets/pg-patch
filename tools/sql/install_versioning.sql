@@ -20,10 +20,10 @@ BEGIN
     COMMENT ON SCHEMA _v IS 'Schema for versioning data and functionality.';
 
     CREATE TABLE _v.patch_history (
-    applied_ts timestamptz NOT NULL DEFAULT now(),
-    revision   text,
-    branch     text,
-    PRIMARY KEY (applied_ts, revision)
+        applied_ts timestamptz NOT NULL DEFAULT now(),
+        revision   text,
+        branch     text,
+        PRIMARY KEY (applied_ts, revision)
     );
     COMMENT ON TABLE _v.patch_history             IS 'Contains history of dates and revisions of applied pathces';
     COMMENT ON COLUMN _v.patch_history.applied_ts IS 'date when pach was applied';
@@ -46,7 +46,7 @@ BEGIN
     COMMENT ON COLUMN _v.patches.requires    IS 'list of patches that are required for given patch';
     COMMENT ON COLUMN _v.patches.conflicts   IS 'list of patches that conflict with given patch';
 
-    CREATE OR REPLACE FUNCTION _v.register_patch( IN in_patch_name TEXT, IN in_author TEXT, IN in_requirements TEXT[], in_conflicts TEXT[]) RETURNS boolean AS $$
+    CREATE OR REPLACE FUNCTION _v.register_patch(IN in_patch_name TEXT, IN in_author TEXT, IN in_requirements TEXT[], in_conflicts TEXT[]) RETURNS boolean AS $$
     DECLARE
         t_text   TEXT;
         t_text_a TEXT[];
@@ -90,52 +90,52 @@ BEGIN
             RETURN FALSE;
         END IF;
 
-        t_text_a := ARRAY( SELECT patch_name FROM _v.patches WHERE patch_name = any( in_conflicts ) );
-        IF array_upper( t_text_a, 1 ) IS NOT NULL THEN
-            RAISE EXCEPTION 'Versioning patches conflict. Conflicting patche(s) installed: %.', array_to_string( t_text_a, ', ' );
+        t_text_a := ARRAY(SELECT patch_name FROM _v.patches WHERE patch_name = any(in_conflicts));
+        IF array_upper(t_text_a, 1) IS NOT NULL THEN
+            RAISE EXCEPTION 'Versioning patches conflict. Conflicting patche(s) installed: %.', array_to_string(t_text_a, ', ');
         END IF;
 
-        IF array_upper( in_requirements, 1 ) IS NOT NULL THEN
+        IF array_upper(in_requirements, 1) IS NOT NULL THEN
             t_text_a := '{}';
-            FOR i IN array_lower( in_requirements, 1 ) .. array_upper( in_requirements, 1 ) LOOP
+            FOR i IN array_lower(in_requirements, 1) .. array_upper(in_requirements, 1) LOOP
                 SELECT patch_name INTO t_text FROM _v.patches WHERE patch_name = in_requirements[i];
                 IF NOT FOUND THEN
                     t_text_a := t_text_a || in_requirements[i];
                 END IF;
             END LOOP;
-            IF array_upper( t_text_a, 1 ) IS NOT NULL THEN
-                RAISE EXCEPTION 'Missing prerequisite(s): %.', array_to_string( t_text_a, ', ' );
+            IF array_upper(t_text_a, 1) IS NOT NULL THEN
+                RAISE EXCEPTION 'Missing prerequisite(s): %.', array_to_string(t_text_a, ', ');
             END IF;
         END IF;
 
         RAISE WARNING 'pg-patch:  * applying patch:  %', in_patch_name;
-        INSERT INTO _v.patches (patch_name, applied_ts, author, applied_by, applied_from, requires, conflicts )
-               VALUES ( in_patch_name, now(), in_author, current_user, COALESCE(inet_client_addr(),'0.0.0.0'::inet), coalesce( in_requirements, '{}' ), coalesce( in_conflicts, '{}' ) );
+        INSERT INTO _v.patches (patch_name, applied_ts, author, applied_by, applied_from, requires, conflicts)
+               VALUES (in_patch_name, now(), in_author, current_user, COALESCE(inet_client_addr(),'0.0.0.0'::inet), coalesce(in_requirements, '{}'), coalesce(in_conflicts, '{}'));
         RETURN TRUE;
     END;
     $$ language plpgsql;
-    COMMENT ON FUNCTION _v.register_patch( TEXT, TEXT, TEXT[], TEXT[] ) IS 'Function to register a patch in database. Returns false if given patch is already installed. Raises exception if prerequisite patches are not installed or there are conflicting patches.';
+    COMMENT ON FUNCTION _v.register_patch(TEXT, TEXT, TEXT[], TEXT[]) IS 'Function to register a patch in database. Returns false if given patch is already installed. Raises exception if prerequisite patches are not installed or there are conflicting patches.';
 
     -- without conflicts
-    CREATE OR REPLACE FUNCTION _v.register_patch( TEXT, TEXT, TEXT[] ) RETURNS boolean AS $$
-        SELECT _v.register_patch( $1, $2, $3, NULL );
+    CREATE OR REPLACE FUNCTION _v.register_patch(TEXT, TEXT, TEXT[]) RETURNS boolean AS $$
+        SELECT _v.register_patch($1, $2, $3, NULL);
     $$ language sql;
-    COMMENT ON FUNCTION _v.register_patch( TEXT, TEXT, TEXT[] ) IS 'Wrapper to allow registration of patch without conflicts.';
+    COMMENT ON FUNCTION _v.register_patch(TEXT, TEXT, TEXT[]) IS 'Wrapper to allow registration of patch without conflicts.';
 
     -- without conflicts, with single required patch
-    CREATE OR REPLACE FUNCTION _v.register_patch( TEXT, TEXT, TEXT ) RETURNS boolean AS $$
-        SELECT _v.register_patch( $1, $2, ARRAY[$3], NULL );
+    CREATE OR REPLACE FUNCTION _v.register_patch(TEXT, TEXT, TEXT) RETURNS boolean AS $$
+        SELECT _v.register_patch($1, $2, ARRAY[$3], NULL);
     $$ language sql;
-    COMMENT ON FUNCTION _v.register_patch( TEXT, TEXT, TEXT ) IS 'Wrapper to allow registration of patch with single required patch and without conflicts.';
+    COMMENT ON FUNCTION _v.register_patch(TEXT, TEXT, TEXT) IS 'Wrapper to allow registration of patch with single required patch and without conflicts.';
 
     -- without required patches and confilcts
-    CREATE OR REPLACE FUNCTION _v.register_patch( TEXT, TEXT ) RETURNS boolean AS $$
-        SELECT _v.register_patch( $1, $2, NULL, NULL );
+    CREATE OR REPLACE FUNCTION _v.register_patch(TEXT, TEXT) RETURNS boolean AS $$
+        SELECT _v.register_patch($1, $2, NULL, NULL);
     $$ language sql;
-    COMMENT ON FUNCTION _v.register_patch( TEXT, TEXT ) IS 'Wrapper to allow registration of patch without requirements and conflicts.';
+    COMMENT ON FUNCTION _v.register_patch(TEXT, TEXT) IS 'Wrapper to allow registration of patch without requirements and conflicts.';
 
     -- remove patch
-    CREATE OR REPLACE FUNCTION _v.unregister_patch( IN in_patch_name TEXT ) RETURNS boolean AS $$
+    CREATE OR REPLACE FUNCTION _v.unregister_patch(IN in_patch_name TEXT) RETURNS boolean AS $$
     DECLARE
         i        INT4;
         t_text_a TEXT[];
@@ -143,9 +143,9 @@ BEGIN
         -- Thanks to this we know only one patch will be applied at a time
         LOCK TABLE _v.patches IN EXCLUSIVE MODE;
 
-        t_text_a := ARRAY( SELECT patch_name FROM _v.patches WHERE in_patch_name = ANY( requires ) );
-        IF array_upper( t_text_a, 1 ) IS NOT NULL THEN
-            RAISE EXCEPTION 'Cannot uninstall patch %, as it is required by: %.', in_patch_name, array_to_string( t_text_a, ', ' );
+        t_text_a := ARRAY(SELECT patch_name FROM _v.patches WHERE in_patch_name = ANY(requires));
+        IF array_upper(t_text_a, 1) IS NOT NULL THEN
+            RAISE EXCEPTION 'Cannot uninstall patch %, as it is required by: %.', in_patch_name, array_to_string(t_text_a, ', ');
         END IF;
 
         DELETE FROM _v.patches WHERE patch_name = in_patch_name;
@@ -157,7 +157,62 @@ BEGIN
         RETURN true;
     END;
     $$ language plpgsql;
-    COMMENT ON FUNCTION _v.unregister_patch( TEXT ) IS 'Function to unregister a patch in database. Raises exception if the patch is not registered or if unregistering it would break dependencies.';
+    COMMENT ON FUNCTION _v.unregister_patch(TEXT) IS 'Function to unregister a patch in database. Raises exception if the patch is not registered or if unregistering it would break dependencies.';
+
+
+    CREATE OR REPLACE FUNCTION _v.assert_patch_is_applied(IN in_patch_name TEXT) RETURNS TEXT as $$
+    DECLARE
+        t_text TEXT;
+    BEGIN
+        SELECT patch_name INTO t_text FROM _v.patches WHERE patch_name = in_patch_name;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Patch % is not applied!', in_patch_name;
+        END IF;
+        RETURN format('Patch %s is applied.', in_patch_name);
+    END;
+    $$ language plpgsql;
+    COMMENT ON FUNCTION _v.assert_patch_is_applied(TEXT) IS 'Function that can be used to make sure that patch has been applied.';
+
+
+    CREATE OR REPLACE FUNCTION _v.assert_user_is_superuser() RETURNS TEXT as $$
+    DECLARE
+        v_super bool;
+    BEGIN
+        SELECT usesuper INTO v_super FROM pg_user WHERE usename = current_user;
+        IF v_super THEN
+            RETURN 'assert_user_is_superuser: OK';
+        END IF;
+        RAISE EXCEPTION 'Current user is not superuser - cannot continue.';
+    END;
+    $$ language plpgsql;
+    COMMENT ON FUNCTION _v.assert_user_is_superuser() IS 'Function that can be used to make sure that patch is being applied using superuser account.';
+
+
+    CREATE OR REPLACE FUNCTION _v.assert_user_is_not_superuser() RETURNS TEXT as $$
+    DECLARE
+        v_super bool;
+    BEGIN
+        SELECT usesuper INTO v_super FROM pg_user WHERE usename = current_user;
+        IF v_super THEN
+            RAISE EXCEPTION 'Current user is superuser - cannot continue.';
+        END IF;
+        RETURN 'assert_user_is_not_superuser: OK';
+    END;
+    $$ language plpgsql;
+    COMMENT ON FUNCTION _v.assert_user_is_not_superuser() IS 'Function that can be used to make sure that patch is being applied using normal (not superuser) account.';
+
+
+    CREATE OR REPLACE FUNCTION _v.assert_user_is_one_of(VARIADIC p_acceptable_users TEXT[]) RETURNS TEXT as $$
+    DECLARE
+    BEGIN
+        IF current_user = any(p_acceptable_users) THEN
+            RETURN 'assert_user_is_one_of: OK';
+        END IF;
+        RAISE EXCEPTION 'User is not one of: % - cannot continue.', p_acceptable_users;
+    END;
+    $$ language plpgsql;
+    COMMENT ON FUNCTION _v.assert_user_is_one_of(TEXT[]) IS 'Function that can be used to make sure that patch is being applied by one of defined users.';
+
 
     -- -------------------------------------------------------
     -- topological sort related functionality
@@ -272,7 +327,7 @@ BEGIN
             _counter = _counter + 1;
 
             -- This is the complex part. Select all nodes that has exactly ONE incoming
-            -- edge - the edge from @CurrentNode. Those nodes can follow @CurrentNode
+            -- edge - the edge from _current_node. Those nodes can follow _current_node
             -- in the topological ordering because the must not come after any other nodes,
             -- or those nodes have already been processed and inserted earlier in the
             -- ordering and had their outgoing edges removed in the next step.
@@ -280,14 +335,14 @@ BEGIN
             SELECT n.node, NULL
             FROM tmp_nodes n
             JOIN tmp_temp_graph_edges e1 ON n.node = e1.node_to -- Join on edge destination
-            WHERE e1.node_from = _current_node AND  -- Edge starts in @CurrentNode
-                NOT EXISTS (                            -- Make sure there are no edges to this node
-                    SELECT 1 FROM tmp_temp_graph_edges e2   -- other then the one from @CurrentNode.
+            WHERE e1.node_from = _current_node AND  -- Edge starts in _current_node
+                NOT EXISTS (                               -- Make sure there are no edges to this node
+                    SELECT 1 FROM tmp_temp_graph_edges e2  -- other then the one from _current_node
                     WHERE e2.node_to = n.node AND e2.node_from <> _current_node
                     limit 1
                 );
 
-            -- Last step. We are done with @CurrentNode, so remove all outgoing edges from it.
+            -- Last step. We are done with _current_node, so remove all outgoing edges from it.
             -- This will "free up" any nodes it has edges into to be inserted into the topological ordering.
             DELETE FROM tmp_temp_graph_edges WHERE node_from = _current_node;
         END LOOP;
@@ -307,7 +362,7 @@ BEGIN
             ORDER BY o.ordinal;
         END IF;
 
-        -- clean up, return.
+        -- clean up, return
         DROP TABLE tmp_temp_graph_edges;
         DROP TABLE tmp_topological_sort_order;
         DROP TABLE tmp_graph_edges;
