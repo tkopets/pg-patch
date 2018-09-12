@@ -51,14 +51,15 @@ BEGIN
         t_text   TEXT;
         t_text_a TEXT[];
         i INT4;
+        _output_reported constant text := 'pg-patch: Reported meta-information for patch %...';
+        _output_applied  constant text := 'pg-patch:  + already applied: %';
+        _output_progress constant text := 'pg-patch:  * applying patch:  %';
     BEGIN
         -- locking _v.patches table is also done in main bash script
         -- nevertheless, it is locked here as well (in case patches would be installed manually)
 
         -- thanks to this we know only one patch will be applied at a time
         LOCK TABLE _v.patches IN EXCLUSIVE MODE;
-
-        -- RAISE WARNING 'pg-patch: Checking patch   %', in_patch_name;
 
         IF in_patch_name IS NULL OR TRIM(in_patch_name) = '' THEN
             RAISE EXCEPTION 'Cannot register patch. Name is null or empty.';
@@ -75,7 +76,7 @@ BEGIN
             if current_setting('pgpatch.current_patch_file') != '' then
                 create temp table if not exists tmp_local_patches(patch_name text primary key, author text not null, requires text[], filename text not null);
                 insert into tmp_local_patches values(in_patch_name, in_author, in_requirements, current_setting('pgpatch.current_patch_file'));
-                raise warning 'pg-patch: Reported meta-information for patch %...', in_patch_name;
+                raise warning _output_reported, in_patch_name;
                 return false;
             end if;
         exception when undefined_object then -- i.e. current_setting raises exception
@@ -86,7 +87,7 @@ BEGIN
         -- IMPORTANT: it is the caller's responsibility to stop installing the current patch if false is returned
         SELECT patch_name INTO t_text FROM _v.patches WHERE patch_name = in_patch_name;
         IF FOUND THEN
-            RAISE WARNING 'pg-patch:  + already applied: %', in_patch_name;
+            RAISE WARNING _output_applied, in_patch_name;
             RETURN FALSE;
         END IF;
 
@@ -108,7 +109,7 @@ BEGIN
             END IF;
         END IF;
 
-        RAISE WARNING 'pg-patch:  * applying patch:  %', in_patch_name;
+        RAISE WARNING _output_progress, in_patch_name;
         INSERT INTO _v.patches (patch_name, applied_ts, author, applied_by, applied_from, requires, conflicts)
                VALUES (in_patch_name, now(), in_author, current_user, COALESCE(inet_client_addr(),'0.0.0.0'::inet), coalesce(in_requirements, '{}'), coalesce(in_conflicts, '{}'));
         RETURN TRUE;
@@ -225,152 +226,120 @@ BEGIN
 
 
     -- Determines a topological ordering or reports that the graph is not a DAG.
-    CREATE OR REPLACE FUNCTION _v.topological_sort(_graph _v.graph_edges[])
+    create or replace function _v.topological_sort(_graph _v.graph_edges[])
     returns table (
       node text,
       sort_order int
-    ) as
-    $BODY$
+    )
+    as $body$
     declare
-        _current_node text;
-        _counter int not null default 0;
+        _nodes text[];
+        _edges _v.graph_edges[];
+        _ordered_nodes text[] default '{}';
+        _next_nodes text[];
+        _cur_node_from text;
+        _all_nodes_to text[];
+        _cur_node_to text;
+        _n_m_edges text[];
     begin
-
-        -- Create a temporary table for building the topological ordering
-        CREATE temporary TABLE tmp_topological_sort_order
-        (
-            node text PRIMARY KEY,  -- The Node
-            ordinal int NULL        -- Defines the topological ordering. NULL for nodes that are
-        );                          -- not yet processed. Will be set as nodes are processed in topological order.
-
-        -- Create a temporary copy of the edges in the graph that we can work on.
-        CREATE temporary TABLE tmp_graph_edges
-        (
-            node_from text,  -- From Node
-            node_to text,    -- To Node
-            PRIMARY KEY (node_from, node_to)
-        );
-        -- expand all graph nodes from input array
-        INSERT INTO tmp_graph_edges (node_from, node_to)
-        SELECT g.node_from, g.node_to
-        FROM unnest(_graph) g
-        where g.node_from is not null
-          and g.node_to is not null
-          and g.node_from != g.node_to;
-
-        -- Create a temporary copy of the edges in the graph that we can work on.
-        CREATE temporary TABLE tmp_nodes
-        (
-            node  text not null,     -- node
-            PRIMARY KEY (node)
-        );
-        -- get all unique nodes from edges
-        INSERT INTO tmp_nodes (node)
-        SELECT distinct g.node_from FROM unnest(_graph) g where g.node_from is not null
-        union
-        SELECT distinct g.node_to FROM unnest(_graph) g where g.node_to is not null;
-
-
-        -- Create a temporary copy of the edges in the graph that we can work on.
-        CREATE temporary TABLE tmp_temp_graph_edges
-        (
-            node_from text,  -- From Node
-            node_to text,    -- To Node
-            PRIMARY KEY (node_from, node_to)
+        _edges = array(
+            select row(g.node_from, g.node_to)::_v.graph_edges
+            from unnest(_graph) g
+            where g.node_from is not null
+              and g.node_to is not null
+              and g.node_from != g.node_to
         );
 
-        -- Grab a copy of all the edges in the graph, as we will
-        -- be deleting edges as the algorithm runs.
-        INSERT INTO tmp_temp_graph_edges (node_from, node_to)
-        SELECT e.node_from, e.node_to
-        FROM tmp_graph_edges e;
-
-        -- Start by inserting all the nodes that have no incoming edges, is it
-        -- is guaranteed that no other nodes should come before them in the ordering.
-        -- Insert with NULL for Ordinal, as we will set this when we process the node.
-        INSERT INTO tmp_topological_sort_order (node, ordinal)
-        SELECT n.node, NULL as ordinal
-        FROM tmp_nodes n
-        WHERE NOT EXISTS (
-            SELECT 1 FROM tmp_graph_edges e WHERE e.node_to = n.node limit 1
+        _nodes = array(
+            select nodes
+            from (
+                select distinct node_from as nodes from unnest(_graph) where node_from is not null
+                union
+                select distinct node_to as nodes from unnest(_graph) where node_to is not null
+            ) x
+            order by 1
         );
 
-        -- DECLARE @CurrentNode int,    -- The current node being processed.
-        --      @Counter int = 0    -- Counter to assign values to the Ordinal column.
+        _next_nodes = array(
+            select n.nodes
+            from   unnest(_nodes) n (nodes)
+            where not exists (
+                select 1 from unnest(_edges) e where e.node_to = n.nodes
+            )
+            order by n.nodes
+        );
 
-        -- Loop until we are done.
-        LOOP
-            -- Reset the variable, so we can detect getting no records in the next step.
-            _current_node = NULL;
+        raise notice '_nodes: %', _nodes;
+        raise notice '_edges: %', _edges;
+        raise notice '_s: %', _next_nodes;
 
-            -- Select any node with [ordinal IS NULL] that is currently in our
-            -- tmp_topological_sort_order table, as all nodes with [ordinal IS NULL] in this table has either
-            -- no incoming edges or any nodes with edges to it have already been processed.
-            SELECT tso.node
-            into   _current_node
-            FROM   tmp_topological_sort_order tso
-            WHERE  tso.ordinal IS NULL
-            order  by tso.node
-            limit  1;
+        -- no top level node, just return all nodes
+        if array_length(_next_nodes, 1) is null then
+            return query
+                select ordered_nodes, (row_number() over ())::int as sort_order
+                from  (
+                   select unnest(_nodes) as ordered_nodes
+                   order by 1
+                ) x;
+            return;
+        end if;
 
-            -- If there are no more such nodes, we are done
-            IF _current_node IS NULL THEN
-                EXIT;
-            END IF;
+        while array_length(_next_nodes, 1) is not null loop
+            _cur_node_from := _next_nodes[1];
+            _next_nodes := _next_nodes[2:];
 
-            -- We are processing this node, so set the Ordinal column of this node to the
-            -- counter value and increase the counter.
-            UPDATE tmp_topological_sort_order tso
-            SET    ordinal = _counter
-            WHERE  tso.node = _current_node;
+            _ordered_nodes := array_append(_ordered_nodes, _cur_node_from);
+            _all_nodes_to = array(
+                select e.node_to
+                from   unnest(_edges) e
+                where  e.node_from = _cur_node_from
+                order by 1
+            );
+            raise notice '_n: %', _cur_node_from;
+            raise notice '_s: %', _next_nodes;
+            raise notice '_l: %', _ordered_nodes;
+            raise notice '_all_ms: %', _all_nodes_to;
 
-            _counter = _counter + 1;
-
-            -- This is the complex part. Select all nodes that has exactly ONE incoming
-            -- edge - the edge from _current_node. Those nodes can follow _current_node
-            -- in the topological ordering because the must not come after any other nodes,
-            -- or those nodes have already been processed and inserted earlier in the
-            -- ordering and had their outgoing edges removed in the next step.
-            INSERT INTO tmp_topological_sort_order (node, ordinal)
-            SELECT n.node, NULL
-            FROM tmp_nodes n
-            JOIN tmp_temp_graph_edges e1 ON n.node = e1.node_to -- Join on edge destination
-            WHERE e1.node_from = _current_node AND  -- Edge starts in _current_node
-                NOT EXISTS (                               -- Make sure there are no edges to this node
-                    SELECT 1 FROM tmp_temp_graph_edges e2  -- other then the one from _current_node
-                    WHERE e2.node_to = n.node AND e2.node_from <> _current_node
-                    limit 1
+            foreach _cur_node_to in array _all_nodes_to loop
+                _n_m_edges = array(
+                    select e.node_from
+                    from   unnest(_edges) e
+                    where  e.node_to = _cur_node_to
+                    order by 1
                 );
+                raise notice '_n_m_edges: %', _n_m_edges;
+                if _n_m_edges = array[_cur_node_from] then
+                    _next_nodes := array_append(_next_nodes, _cur_node_to);
+                    _edges = array(
+                        select row(e.node_from, e.node_to)::_v.graph_edges
+                        from   unnest(_edges) e
+                        where  e.node_to <> _cur_node_to
+                        order by 1
+                    );
+                    raise notice 'if yes. _s: %', _next_nodes;
+                    raise notice 'if yes. _edges: %', _edges;
+                else
+                    _edges = array(
+                        select row(e.node_from, e.node_to)::_v.graph_edges
+                        from   unnest(_edges) e
+                        where  not (e.node_to = _cur_node_to and e.node_from = _cur_node_from)
+                        order by 1
+                    );
+                    raise notice 'if no.  _edges: %', _edges;
+                end if;
+            end loop;
+        end loop;
+        if _edges <> '{}' then
+            raise exception 'input graph contains cycles';
+        end if;
 
-            -- Last step. We are done with _current_node, so remove all outgoing edges from it.
-            -- This will "free up" any nodes it has edges into to be inserted into the topological ordering.
-            DELETE FROM tmp_temp_graph_edges WHERE node_from = _current_node;
-        END LOOP;
-
-        -- If there are edges left in our graph after the algorithm is done, it
-        -- means that it could not reach all nodes to eliminate all edges, which
-        -- means that the graph must have cycles and no topological ordering can be produced.
-        IF EXISTS (SELECT 1 FROM tmp_temp_graph_edges limit 1) then
-            raise exception 'the graph contains cycles and no topological ordering can be produced';
-            -- SELECT node_from, node_to FROM tmp_temp_graph_edges
-        ELSE
-            -- Select the nodes ordered by the topological ordering we produced.
-            RETURN QUERY
-            SELECT n.node, o.ordinal as sort_order
-            FROM tmp_nodes n
-            JOIN tmp_topological_sort_order o ON n.node = o.node
-            ORDER BY o.ordinal;
-        END IF;
-
-        -- clean up, return
-        DROP TABLE tmp_temp_graph_edges;
-        DROP TABLE tmp_topological_sort_order;
-        DROP TABLE tmp_graph_edges;
-        DROP TABLE tmp_nodes;
-
-        RETURN;
-    END;
-    $BODY$ language plpgsql volatile;
+        return query
+          select ordered_nodes, (row_number() over ())::int as sort_order
+          from  (
+             select unnest(_ordered_nodes) as ordered_nodes
+          ) x;
+    end
+    $body$ language plpgsql immutable strict;
 
 END;
 $BODYPGPATCH$;
