@@ -1,6 +1,6 @@
 /*
  * It is *VERY IMPORTANT* that code below does not do anything
- * if function _v.register_patch returned false!
+ * if the function _v.register_patch returned false!
  */
 
 do
@@ -8,9 +8,9 @@ language plpgsql
 $body$
 declare
     -- change patch name, author and list of required patches
-    _patch   text   = '1.0-init-patch';  -- usually same as file name without .sql extension
-    _author  text   = 'John Doe <john.doe@example.com>';
-    _depends text[] = '{}';
+    _patch   constant text   = '1.0-init-patch';
+    _author  constant text   = 'John Doe <john.doe@example.com>';
+    _depends constant text[] = '{}';
 begin
     -- try to register patch but do nothing if is not registered
     if not _v.register_patch(_patch, _author, _depends) then
