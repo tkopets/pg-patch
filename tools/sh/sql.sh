@@ -177,6 +177,14 @@ function install_recreatable_objects {
 }
 
 
+function run_user_before_patch_sql {
+    local USER_BEFORE_PATCH_FILE="$PWD/patches/util/before_patch.sql"
+    if [[ -f "$USER_BEFORE_PATCH_FILE" ]] ; then
+        sed_strip_utf8_bom "$USER_BEFORE_PATCH_FILE"
+    fi
+}
+
+
 function run_user_after_patch_sql {
     local USER_AFTER_PATCH_FILE="$PWD/patches/util/after_patch.sql"
     if [[ -f "$USER_AFTER_PATCH_FILE" ]] ; then
@@ -247,6 +255,9 @@ function run_all() {
 
     # get version information and lock patch table
     lock_for_patch
+
+    # run user before patch sql code
+    run_user_before_patch_sql
 
     # load patches. drop recreatable obejcts and make schema/data changes
     load_patches "$patch_list_ordered"
