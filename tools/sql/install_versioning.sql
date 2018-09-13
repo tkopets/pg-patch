@@ -23,7 +23,7 @@ BEGIN
         PRIMARY KEY (applied_ts)
     );
     COMMENT ON TABLE _v.patch_history             IS 'Contains history of dates and revisions of applied pathces';
-    COMMENT ON COLUMN _v.patch_history.applied_ts IS 'date when pach was applied';
+    COMMENT ON COLUMN _v.patch_history.applied_ts IS 'date when patch was applied';
     COMMENT ON COLUMN _v.patch_history.revision   IS 'patch revision';
     COMMENT ON COLUMN _v.patch_history.branch     IS 'branch name';
 
@@ -96,7 +96,7 @@ BEGIN
 
         t_text_a := ARRAY(SELECT patch_name FROM _v.patches WHERE patch_name = any(in_conflicts));
         IF array_upper(t_text_a, 1) IS NOT NULL THEN
-            RAISE EXCEPTION 'Versioning patches conflict. Conflicting patche(s) installed: %.', array_to_string(t_text_a, ', ');
+            RAISE EXCEPTION 'Versioning patches conflict. Conflicting patch(es) installed: %.', array_to_string(t_text_a, ', ');
         END IF;
 
         IF array_upper(in_requirements, 1) IS NOT NULL THEN
