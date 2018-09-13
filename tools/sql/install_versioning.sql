@@ -1,11 +1,8 @@
 -- pg-patch install_versioning.sql start --
 
--- This file adds versioning support to database it will be loaded to.
+-- This file adds versioning support to the database it will be loaded to.
 -- It requires that PL/pgSQL is already loaded - will raise exception otherwise.
 -- All versioning "stuff" (tables, functions) is in "_v" schema.
-
--- All functions are defined as 'RETURNS SETOF INT4' to be able to make them to RETURN literaly nothing (0 rows).
--- >> RETURNS VOID<< IS similar, but it still outputs "empty line" in psql when calling.
 
 DO
 LANGUAGE PLPGSQL
@@ -23,7 +20,7 @@ BEGIN
         applied_ts timestamptz NOT NULL DEFAULT now(),
         revision   text,
         branch     text,
-        PRIMARY KEY (applied_ts, revision)
+        PRIMARY KEY (applied_ts)
     );
     COMMENT ON TABLE _v.patch_history             IS 'Contains history of dates and revisions of applied pathces';
     COMMENT ON COLUMN _v.patch_history.applied_ts IS 'date when pach was applied';
@@ -43,10 +40,16 @@ BEGIN
     COMMENT ON COLUMN _v.patches.patch_name  IS 'name of patch, has to be unique for every patch';
     COMMENT ON COLUMN _v.patches.applied_ts  IS 'when the patch was applied';
     COMMENT ON COLUMN _v.patches.applied_by  IS 'who applied this patch (PostgreSQL username)';
+    COMMENT ON COLUMN _v.patches.applied_from IS 'client IP who applied this patch';
     COMMENT ON COLUMN _v.patches.requires    IS 'list of patches that are required for given patch';
     COMMENT ON COLUMN _v.patches.conflicts   IS 'list of patches that conflict with given patch';
 
-    CREATE OR REPLACE FUNCTION _v.register_patch(IN in_patch_name TEXT, IN in_author TEXT, IN in_requirements TEXT[], in_conflicts TEXT[]) RETURNS boolean AS $$
+    CREATE OR REPLACE FUNCTION _v.register_patch(in_patch_name TEXT, in_author TEXT,
+                                                 in_requirements TEXT[] default null,
+                                                 in_conflicts TEXT[] default null
+    )
+    RETURNS boolean
+    AS $$
     DECLARE
         t_text   TEXT;
         t_text_a TEXT[];
@@ -117,23 +120,11 @@ BEGIN
     $$ language plpgsql;
     COMMENT ON FUNCTION _v.register_patch(TEXT, TEXT, TEXT[], TEXT[]) IS 'Function to register a patch in database. Returns false if given patch is already installed. Raises exception if prerequisite patches are not installed or there are conflicting patches.';
 
-    -- without conflicts
-    CREATE OR REPLACE FUNCTION _v.register_patch(TEXT, TEXT, TEXT[]) RETURNS boolean AS $$
-        SELECT _v.register_patch($1, $2, $3, NULL);
-    $$ language sql;
-    COMMENT ON FUNCTION _v.register_patch(TEXT, TEXT, TEXT[]) IS 'Wrapper to allow registration of patch without conflicts.';
-
     -- without conflicts, with single required patch
     CREATE OR REPLACE FUNCTION _v.register_patch(TEXT, TEXT, TEXT) RETURNS boolean AS $$
         SELECT _v.register_patch($1, $2, ARRAY[$3], NULL);
     $$ language sql;
     COMMENT ON FUNCTION _v.register_patch(TEXT, TEXT, TEXT) IS 'Wrapper to allow registration of patch with single required patch and without conflicts.';
-
-    -- without required patches and confilcts
-    CREATE OR REPLACE FUNCTION _v.register_patch(TEXT, TEXT) RETURNS boolean AS $$
-        SELECT _v.register_patch($1, $2, NULL, NULL);
-    $$ language sql;
-    COMMENT ON FUNCTION _v.register_patch(TEXT, TEXT) IS 'Wrapper to allow registration of patch without requirements and conflicts.';
 
     -- remove patch
     CREATE OR REPLACE FUNCTION _v.unregister_patch(IN in_patch_name TEXT) RETURNS boolean AS $$
@@ -161,7 +152,7 @@ BEGIN
     COMMENT ON FUNCTION _v.unregister_patch(TEXT) IS 'Function to unregister a patch in database. Raises exception if the patch is not registered or if unregistering it would break dependencies.';
 
 
-    CREATE OR REPLACE FUNCTION _v.assert_patch_is_applied(IN in_patch_name TEXT) RETURNS TEXT as $$
+    CREATE OR REPLACE FUNCTION _v.assert_patch_is_applied(in_patch_name TEXT) RETURNS TEXT as $$
     DECLARE
         t_text TEXT;
     BEGIN
@@ -269,10 +260,6 @@ BEGIN
             order by n.nodes
         );
 
-        raise notice '_nodes: %', _nodes;
-        raise notice '_edges: %', _edges;
-        raise notice '_s: %', _next_nodes;
-
         -- no top level node, just return all nodes
         if array_length(_next_nodes, 1) is null then
             return query
@@ -295,10 +282,6 @@ BEGIN
                 where  e.node_from = _cur_node_from
                 order by 1
             );
-            raise notice '_n: %', _cur_node_from;
-            raise notice '_s: %', _next_nodes;
-            raise notice '_l: %', _ordered_nodes;
-            raise notice '_all_ms: %', _all_nodes_to;
 
             foreach _cur_node_to in array _all_nodes_to loop
                 _n_m_edges = array(
@@ -307,7 +290,7 @@ BEGIN
                     where  e.node_to = _cur_node_to
                     order by 1
                 );
-                raise notice '_n_m_edges: %', _n_m_edges;
+
                 if _n_m_edges = array[_cur_node_from] then
                     _next_nodes := array_append(_next_nodes, _cur_node_to);
                     _edges = array(
@@ -316,8 +299,6 @@ BEGIN
                         where  e.node_to <> _cur_node_to
                         order by 1
                     );
-                    raise notice 'if yes. _s: %', _next_nodes;
-                    raise notice 'if yes. _edges: %', _edges;
                 else
                     _edges = array(
                         select row(e.node_from, e.node_to)::_v.graph_edges
@@ -325,7 +306,6 @@ BEGIN
                         where  not (e.node_to = _cur_node_to and e.node_from = _cur_node_from)
                         order by 1
                     );
-                    raise notice 'if no.  _edges: %', _edges;
                 end if;
             end loop;
         end loop;
