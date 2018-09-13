@@ -74,7 +74,7 @@ begin
             from   tmp_local_patches chk
             where  p.dependency = chk.patch_name
     );
-    
+
     if _rec is not null then
         raise exception ''missing dependent local patch(es) [%] required from [%]'', _rec.missing_dependency, _rec.patch_name
                         using ERRCODE = ''undefined_object'';
@@ -226,7 +226,7 @@ function read_local_args() {
             --help)           help && exit 0;;
         esac
     done
-    
+
     # assign leftovers to files
     FILES="$@"
 

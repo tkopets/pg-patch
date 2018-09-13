@@ -32,9 +32,8 @@ echo "Detected OS: ${OSTYPE//[0-9.]}"
 
 echo "Checking required apps..."
 # os independent utils
+# echo "tsort $(echo_if $(program_is_installed tsort))"
 echo "psql  $(echo_if $(program_is_installed psql))"
-echo "perl  $(echo_if $(program_is_installed perl))"
-echo "tsort $(echo_if $(program_is_installed tsort))"
 echo "git   $(echo_if $(program_is_installed git))"
 echo "hg    $(echo_if $(program_is_installed hg))"
 echo "tee   $(echo_if $(program_is_installed tee))"

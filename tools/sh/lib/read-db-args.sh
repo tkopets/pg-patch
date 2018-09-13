@@ -14,7 +14,7 @@ SILENT_FLAG_SET=0
 
 function read_db_args() {
     local arg=
-    
+
     local dbhost_ok=false
     local dbport_ok=false
     local dbuser_ok=false
@@ -71,7 +71,7 @@ function read_db_args() {
     if [[ "$database_ok" = false ]] ; then
         echo "ERROR:  DB name -d (--database) is not specified" 1>&2; exit 1;
     fi
-    
+
     DBARGS_LEFTOVERS=$@
 
     return 0

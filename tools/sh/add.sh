@@ -1,5 +1,5 @@
 #!/bin/bash
- 
+
 CURRENT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
 function help {
@@ -34,7 +34,7 @@ get_git_user() {
         git_user_name=$(git config user.name)
         git_user_name=${git_user_name:-'Unknown'}
         git_user_email=$(git config user.email)
-        
+
         git_user="$git_user_name"
         if [ -n "$git_user_email" ]; then
             git_user="$git_user_name <$git_user_email>"
@@ -62,7 +62,7 @@ function process_args() {
 
 function main() {
     process_args "$@"
-    
+
     local patch_name=$1
     local tmp_dep_array=("${@:2}") # copy second to last args
     local patch_dependencies=$(IFS=,; echo "${tmp_dep_array[*]}")

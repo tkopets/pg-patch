@@ -189,7 +189,7 @@ function read_common_db_args() {
     done
     shift $((OPTIND - 1))
     unprocessed_args+=( "$@" )  # append remaining args. (operands), if any
-    
+
     PASS_THROUGH_ARGS=("${unprocessed_args[@]}")
 
     return 0
@@ -274,11 +274,11 @@ function main() {
     # ./default.conf -> ~/.pg-patch.conf -> the one supplied via option (if present)
     read_config "$PWD/default.conf" 'optional'
     read_config "~/.pg-patch.conf" 'optional'
-    
+
     if [[ -n "$param_config" ]] ; then
         read_config "$param_config" 'mandatory'
     fi
-    
+
     # command-line params override values set in configs
     DBHOST=${param_dbhost:-$DBHOST}
     DBPORT=${param_dbport:-$DBPORT}
@@ -302,7 +302,7 @@ function main() {
     else
         $COMMAND_SCRIPT "$command_db_args" "${PASS_THROUGH_ARGS[@]}"
     fi
-    
+
     exit 0
 }
 
