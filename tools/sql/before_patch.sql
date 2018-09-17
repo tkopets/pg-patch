@@ -41,17 +41,14 @@ DECLARE
 
   -- drop types
   FOR _sql IN
-        SELECT 'DROP TYPE IF EXISTS '||quote_ident(nspname)||'.'||quote_ident(typname)||' CASCADE;'
-          FROM (
-                SELECT DISTINCT t.typname, ns.nspname
-                FROM   pg_proc p
-                       INNER JOIN pg_type t ON p.prorettype = t.oid
-                       INNER JOIN pg_namespace ns ON p.pronamespace = ns.oid
-                WHERE  t.typtype IN ('c','e','d')  -- only composite, enum, domain types
-                   AND ns.nspname NOT LIKE 'pg_%'
-                   AND ns.nspname NOT IN ('information_schema', '_v')
-                   AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE t.oid = d.objid AND d.deptype = 'e')
-               ) disttyp
+        SELECT 'DROP TYPE IF EXISTS '||quote_ident(ns.nspname)||'.'||quote_ident(t.typname)||' CASCADE;'
+        FROM   pg_type t
+               INNER JOIN pg_namespace ns ON t.typnamespace = ns.oid
+        WHERE  t.typtype IN ('c','e','d')  -- only composite, enum, domain types
+           AND NOT EXISTS (SELECT 1 FROM pg_class c WHERE c.relname = t.typname AND c.relnamespace = t.typnamespace and c.relkind != 'c')
+           AND ns.nspname NOT LIKE 'pg_%'
+           AND ns.nspname NOT IN ('information_schema', '_v')
+           AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE t.oid = d.objid AND d.deptype = 'e')
   LOOP
       RAISE NOTICE 'about to drop type: %', _sql;
       EXECUTE _sql;
