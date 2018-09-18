@@ -66,7 +66,7 @@ function grep_bin() {
     fi
 }
 
-function get_recreatable_objects_path {
+function get_code_objects_path {
     local CODE_PATH=''
     if [[ -d "$PWD/code/types/" ]] ; then
         CODE_PATH="$CODE_PATH $PWD/code/types/"
@@ -141,7 +141,7 @@ function lock_for_patch(){
 }
 
 function load_patches() {
-    # before patch. drop recreatable objects
+    # before patch. drop code objects
     sed_strip_utf8_bom $DB_PATH/tools/sql/before_patch.sql
 
     echo
@@ -163,11 +163,11 @@ function load_patches() {
 }
 
 
-function install_recreatable_objects {
+function install_code_objects {
 
     local MODULE_PATH=''
 
-    MODULE_PATH="$(get_recreatable_objects_path)"
+    MODULE_PATH="$(get_code_objects_path)"
 
     export -f sed_bin
     export -f sed_strip_utf8_bom
@@ -259,11 +259,11 @@ function run_all() {
     # run user before patch sql code
     run_user_before_patch_sql
 
-    # load patches. drop recreatable obejcts and make schema/data changes
+    # load patches. drop code obejcts and make schema/data changes
     load_patches "$patch_list_ordered"
 
-    # restore recreatable objects
-    install_recreatable_objects
+    # restore code objects
+    install_code_objects
 
     # run user after patch sql code
     run_user_after_patch_sql
