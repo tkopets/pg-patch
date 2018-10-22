@@ -51,10 +51,10 @@ function sed_bin() {
 function sed_strip_utf8_bom() {
     if [[ "$OSTYPE" == "darwin"*  ]]; then
         # Mac OSX
-        sed_bin $'s/^\xEF\xBB\xBF//' "$@"
+        LC_ALL=C sed_bin $'1s/^\xEF\xBB\xBF//' "$@"
     else
         # others
-        sed_bin 's/^\xEF\xBB\xBF//'  "$@"
+        LC_ALL=C sed_bin '1s/^\xEF\xBB\xBF//'  "$@"
     fi
 }
 
