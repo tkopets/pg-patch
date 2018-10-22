@@ -9,9 +9,12 @@ if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 
 query_patches  "
 with patches as (
-    select array_agg( row(p, dep)::_v.graph_edges ) as graph from (
-      select patch_name as p, case when requires <> '{}' then unnest(requires) else patch_name end as dep
-      from tmp_local_patches
+    select array_agg( row(p, dep)::_v.graph_edges ) as graph
+    from (
+        select p.patch_name as p,
+               coalesce(r.required, p.patch_name) as dep
+        from   tmp_local_patches p
+               left join lateral unnest(p.requires) as r(required) on true
     ) w
 )
 select case when p is null
