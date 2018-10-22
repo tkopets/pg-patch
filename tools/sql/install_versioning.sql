@@ -54,9 +54,6 @@ BEGIN
         t_text   TEXT;
         t_text_a TEXT[];
         i INT4;
-        _output_reported constant text := 'pg-patch: Reported meta-information for patch %...';
-        _output_applied  constant text := 'pg-patch:  + already applied: %';
-        _output_progress constant text := 'pg-patch:  * applying patch:  %';
     BEGIN
         -- locking _v.patches table is also done in main bash script
         -- nevertheless, it is locked here as well (in case patches would be installed manually)
@@ -79,7 +76,7 @@ BEGIN
             if current_setting('pgpatch.current_patch_file') != '' then
                 create temp table if not exists tmp_local_patches(patch_name text primary key, author text not null, requires text[], filename text not null);
                 insert into tmp_local_patches values(in_patch_name, in_author, in_requirements, current_setting('pgpatch.current_patch_file'));
-                raise warning _output_reported, in_patch_name;
+                raise warning 'pg-patch: Reported meta-information for patch %...', in_patch_name;
                 return false;
             end if;
         exception when undefined_object then -- i.e. current_setting raises exception
@@ -90,7 +87,7 @@ BEGIN
         -- IMPORTANT: it is the caller's responsibility to stop installing the current patch if false is returned
         SELECT patch_name INTO t_text FROM _v.patches WHERE patch_name = in_patch_name;
         IF FOUND THEN
-            RAISE WARNING _output_applied, in_patch_name;
+            RAISE WARNING 'pg-patch:  + already applied: %', in_patch_name;
             RETURN FALSE;
         END IF;
 
@@ -112,7 +109,7 @@ BEGIN
             END IF;
         END IF;
 
-        RAISE WARNING _output_progress, in_patch_name;
+        RAISE WARNING 'pg-patch:  * applying patch:  %', in_patch_name;
         INSERT INTO _v.patches (patch_name, applied_ts, author, applied_by, applied_from, requires, conflicts)
                VALUES (in_patch_name, now(), in_author, current_user, COALESCE(inet_client_addr(),'0.0.0.0'::inet), coalesce(in_requirements, '{}'), coalesce(in_conflicts, '{}'));
         RETURN TRUE;
