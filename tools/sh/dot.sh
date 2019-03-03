@@ -1,10 +1,10 @@
 #!/bin/bash
-
-set -e
+set -o errexit
 set -o pipefail
 
 readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
-readonly PATCHES_LIST="$PWD/patches/*.sql"
+readonly PATCH_LIST_SCRIPT="$CURRENT_PATH/util-dependencies.sh"
+readonly PATCH_FILES="$PWD/patches/*.sql"
 
 function help {
     cat <<EOF
@@ -29,7 +29,7 @@ function run_dot() {
     # process parameters
     for var in "$@"
     do
-        if [[ $var == "--help" ]] ; then
+        if [[ "$var" == "--help" ]] ; then
             help
             exit 0
         else
@@ -37,15 +37,15 @@ function run_dot() {
         fi
     done
 
-    local patch_dependencies=
-    patch_dependencies=$($CURRENT_PATH/util-dependencies.sh "${unprocessed_args[@]}" $PATCHES_LIST)
+    local patches_list=
+    patches_list=$("$PATCH_LIST_SCRIPT" "${unprocessed_args[@]}" $PATCH_FILES)
 
 
-    if [[ -n $patch_dependencies ]] ; then
+    if [[ -n "$patches_list" ]] ; then
         echo "digraph { "
-        echo "$patch_dependencies" |
-        sed 's/^/"/g' |
-        sed 's/ /" -> "/g' |
+        echo "$patches_list" |  \
+        sed 's/^/"/g' |  \
+        sed 's/ /" -> "/g' |  \
         sed 's/$/";/g'
         echo "}"
     else

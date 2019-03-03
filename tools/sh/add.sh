@@ -1,6 +1,8 @@
 #!/bin/bash
+set -o errexit
+set -o pipefail
 
-CURRENT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+readonly CURRENT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
 function help {
     cat <<EOF
@@ -52,7 +54,7 @@ function process_args() {
         fi
     done
 
-    if [[ -z $1 ]] ; then
+    if [[ -z "$1" ]] ; then
         echo "ERROR:  patch name is not specified. See 'pgpatch add --help'." 1>&2
         exit 1
     fi
@@ -63,20 +65,22 @@ function process_args() {
 function main() {
     process_args "$@"
 
-    local patch_name=$1
-    local tmp_dep_array=("${@:2}") # copy second to last args
-    local patch_dependencies=$(IFS=,; echo "${tmp_dep_array[*]}")
+    local -r patch_name=$1
+    local -r tmp_dep_array=("${@:2}") # copy second to last args
+    local patch_dependencies
     local git_user=
+
+    patch_dependencies=$(IFS=,; echo "${tmp_dep_array[*]}")
 
     get_git_user
     git_user=${git_user:-'Unknown'}
 
     # create new patch
-    cat $CURRENT_DIR/../sql/patch_template.sql | \
+    cat "$CURRENT_DIR/../sql/patch_template.sql" | \
         sed_bin "s/<%name%>/$patch_name/" | \
         sed_bin "s/<%author%>/$git_user/" | \
         sed_bin "s/<%dependencies%>/$patch_dependencies/" | \
-        tee $PWD/patches/$patch_name.sql
+        tee "$PWD/patches/$patch_name.sql"
 }
 
 main "$@"

@@ -1,7 +1,6 @@
-LIST_BOTH=0
-LIST_APPLIED=0
-LIST_LOCAL=0
-LIST_VERBOSE=0
+#!/bin/bash
+set -o errexit
+set -o pipefail
 
 readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
 readonly PATCHES_LIST="$PWD/patches/*.sql"
@@ -41,6 +40,10 @@ EOF
 
 function run_list() {
     unprocessed_args=()
+    local list_both=0
+    local list_local=0
+    local list_applied=0
+    local list_verbose=0
 
     # process parameters
     for var in "$@"
@@ -49,13 +52,13 @@ function run_list() {
             help
             exit 0
         elif [[ $var == "--both" ]] || [[ $var == "-b" ]] ; then
-            LIST_BOTH=1
+            list_both=1
         elif [[ $var == "--local" ]] || [[ $var == "-l" ]] ; then
-            LIST_LOCAL=1
+            list_local=1
         elif [[ $var == "--applied" ]] || [[ $var == "-a" ]] ; then
-            LIST_APPLIED=1
+            list_applied=1
         elif [[ $var == "--verbose" ]] || [[ $var == "-v" ]] ; then
-            LIST_VERBOSE=1
+            list_verbose=1
         else
             unprocessed_args+=("$var")
         fi
@@ -65,24 +68,24 @@ function run_list() {
     # echo "-- all args:  $@"
     # echo "-- unprocessed args: ${unprocessed_args[@]}"
 
-    if [[ $LIST_APPLIED -eq 1 ]] ; then
-        if [[ $LIST_VERBOSE -eq 1 ]] ; then
-            $CURRENT_PATH/list-patches-applied-verbose.sh "${unprocessed_args[@]}"
+    if [[ "$list_applied" -eq 1 ]] ; then
+        if [[ "$list_verbose" -eq 1 ]] ; then
+            "$CURRENT_PATH/list-patches-applied-verbose.sh" "${unprocessed_args[@]}"
         else
-            $CURRENT_PATH/list-patches-applied.sh "${unprocessed_args[@]}"
+            "$CURRENT_PATH/list-patches-applied.sh" "${unprocessed_args[@]}"
         fi
-    elif [[ $LIST_LOCAL -eq 1 ]] ; then
-        if [[ $LIST_VERBOSE -eq 1 ]] ; then
-            $CURRENT_PATH/list-patches-local-verbose.sh "${unprocessed_args[@]}" $PATCHES_LIST
+    elif [[ "$list_local" -eq 1 ]] ; then
+        if [[ "$list_verbose" -eq 1 ]] ; then
+            "$CURRENT_PATH/list-patches-local-verbose.sh" "${unprocessed_args[@]}" $PATCHES_LIST
         else
-            $CURRENT_PATH/list-patches-local.sh "${unprocessed_args[@]}" $PATCHES_LIST
+            "$CURRENT_PATH/list-patches-local.sh" "${unprocessed_args[@]}" $PATCHES_LIST
         fi
     else
         # default, if none specified
-        if [[ $LIST_VERBOSE -eq 1 ]] ; then
-            $CURRENT_PATH/list-patches-both-verbose.sh "${unprocessed_args[@]}" $PATCHES_LIST
+        if [[ "$list_verbose" -eq 1 ]] ; then
+            "$CURRENT_PATH/list-patches-both-verbose.sh" "${unprocessed_args[@]}" $PATCHES_LIST
         else
-            $CURRENT_PATH/list-patches-both.sh "${unprocessed_args[@]}" $PATCHES_LIST
+            "$CURRENT_PATH/list-patches-both.sh" "${unprocessed_args[@]}" $PATCHES_LIST
         fi
     fi
 

@@ -1,11 +1,7 @@
 #!/bin/bash
-
-set -e
+set -o errexit
 set -o pipefail
 
-# Simple tool to list files with patches that satisfies dependencies while loading them.
-
-# source query-patches.sh located in the same dir
 DIR="${BASH_SOURCE%/*}"
 if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 . "$DIR/lib/query-patches.sh"

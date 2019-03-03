@@ -1,6 +1,6 @@
 #!/bin/bash
-
-set -e
+set -o errexit
+set -o pipefail
 
 # source read-db-args.sh located in lib dir
 DIR="${BASH_SOURCE%/*}"
@@ -68,27 +68,27 @@ function grep_bin() {
 
 function get_code_objects_path {
     local CODE_PATH=''
-    if [[ -d "$PWD/code/types/" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/types/"
+    if [[ -d "$PWD/code/types" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/types"
     fi
-    if [[ -d "$PWD/code/functions/" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/functions/"
+    if [[ -d "$PWD/code/functions" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/functions"
     fi
-    if [[ -d "$PWD/code/views/" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/views/"
+    if [[ -d "$PWD/code/views" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/views"
     fi
-    if [[ -d "$PWD/code/rules/" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/rules/"
+    if [[ -d "$PWD/code/rules" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/rules"
     fi
-    if [[ -d "$PWD/code/triggers/" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/triggers/"
+    if [[ -d "$PWD/code/triggers" ]] ; then
+        CODE_PATH="$CODE_PATH $PWD/code/triggers"
     fi
 
     echo $CODE_PATH
 }
 
 function load_versioning() {
-    sed_strip_utf8_bom $DB_PATH/tools/sql/install_versioning.sql
+    sed_strip_utf8_bom "$DB_PATH/tools/sql/install_versioning.sql"
 }
 
 function get_patches_install_order() {
@@ -98,22 +98,23 @@ function get_patches_install_order() {
         SILENT_FLAG=' -s '
     fi
 
-    $DIR/util-patch-files.sh -h $DBHOST -p $DBPORT -U $DBUSER -d $DATABASE $SILENT_FLAG $PWD/patches/*.sql
+    "$DIR/util-patch-files.sh" -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DATABASE" \
+        "$SILENT_FLAG" "$PWD/patches/*.sql"
 }
 
 function lock_for_patch(){
 
-    sed_strip_utf8_bom $DB_PATH/tools/sql/header.sql
+    sed_strip_utf8_bom "$DB_PATH/tools/sql/header.sql"
 
     # get repository revision global ID and branch name
     #if git
     if hash git 2> /dev/null &&  git rev-parse --git-dir > /dev/null 2>&1 ; then
-        REVISION=`git rev-parse HEAD`
-        BRANCH=`git rev-parse --abbrev-ref HEAD`
+        REVISION=$(git rev-parse HEAD)
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
         #if hg
     elif hash hg 2> /dev/null && hg root > /dev/null 2>&1 ; then
-        REVISION==`hg id -i`
-        BRANCH=`hg id -b`
+        REVISION=$(hg id -i)
+        BRANCH=$(hg id -b)
     elif [ -f repo.info ] ; then
         . repo.info
         REVISION=$B_REVISION
@@ -127,7 +128,7 @@ function lock_for_patch(){
     echo "BEGIN;"
     echo
 
-    if [[ $LOAD_BASE -eq 1 ]] ; then
+    if [[ "$LOAD_BASE" -eq 1 ]] ; then
         load_versioning
     fi
 
@@ -142,7 +143,7 @@ function lock_for_patch(){
 
 function load_patches() {
     # before patch. drop code objects
-    sed_strip_utf8_bom $DB_PATH/tools/sql/before_patch.sql
+    sed_strip_utf8_bom "$DB_PATH/tools/sql/before_patch.sql"
 
     echo
     echo "-- apply patches --"
@@ -159,7 +160,7 @@ function load_patches() {
     #    | xargs -I{} cat $PWD/patches/{}.sql
 
     # after patch
-    sed_strip_utf8_bom $DB_PATH/tools/sql/after_patch.sql
+    sed_strip_utf8_bom "$DB_PATH/tools/sql/after_patch.sql"
 }
 
 
@@ -171,7 +172,7 @@ function install_code_objects {
 
     export -f sed_bin
     export -f sed_strip_utf8_bom
-    find $MODULE_PATH -name '*.sql' -type f -print0 | sort -z \
+    find $MODULE_PATH -name '*.sql' -type f -print0 \
         | xargs -0 -I{} bash -c 'sed_strip_utf8_bom {}'
 
 }
@@ -195,7 +196,7 @@ function run_user_after_patch_sql {
 
 function commit_or_rollback() {
     # finalize
-    if [[ $DRY_RUN -eq 1 ]] ; then
+    if [[ "$DRY_RUN" -eq 1 ]] ; then
         echo
         echo "ROLLBACK;"
         echo
@@ -215,12 +216,12 @@ function read_args() {
     # process parameters
     for var in "$@"
     do
-        if [[ $var == "--help" ]] ; then
+        if [[ "$var" == "--help" ]] ; then
             help
             exit 0
-        elif [[ $var == "--install" ]] || [[ $var == "-i" ]] ; then
+        elif [[ "$var" == "--install" ]] || [[ "$var" == "-i" ]] ; then
             LOAD_BASE=1
-        elif [[ $var == "--dry-run" ]] || [[ $var == "-0" ]] ; then
+        elif [[ "$var" == "--dry-run" ]] || [[ "$var" == "-0" ]] ; then
             DRY_RUN=1
         else
             unprocessed_args+=("$var")
@@ -246,11 +247,7 @@ function read_args() {
 
 function run_all() {
     # run queries to find out patches order before locking tables
-    # DON'T MAKE patch_list_ordered LOCAL AND ASSING RESULT OF get_patches_install_order
-    # RIGHT AWAY, OTHERWISE ERROR REPORTING AND RETURN CODES DOES NOT WORK
-    # http://stackoverflow.com/questions/20157938/bash-exit-code-of-variable-assignment-to-command-substitution
-    # local patch_list_ordered=$(get_patches_install_order) # THIS IS THE WRONG WAY!!!
-    local patch_list_ordered=''
+    local patch_list_ordered
     patch_list_ordered=$(get_patches_install_order)
 
     # get version information and lock patch table

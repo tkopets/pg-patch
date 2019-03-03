@@ -1,20 +1,11 @@
 #!/bin/bash
-
-set -e
+set -o errexit
+set -o pipefail
 
 readonly PGPATCH_PATH="$( cd "$( dirname "$( dirname "$( dirname "$0" )" )" )" && pwd )"
 
 readonly ARGS="$@"
 readonly ARGC="$#"
-
-# default parameters
-PATCH=
-INSTALL=
-
-DBUSER=''
-DBHOST=''
-DATABASE=''
-DBPORT=''
 
 function grep_bin() {
     if [[ ${OSTYPE//[0-9.]} == "solaris" ]]; then
@@ -59,7 +50,7 @@ EOF
 
 function confirm_action {
     while true; do
-        read -p "Do you want to continue? [y/n]: " ans
+        read -r -p "Do you want to continue? [y/n]: " ans
         case $ans in
             [Yy]* )
                 break;;
@@ -97,7 +88,7 @@ function read_args() {
     done
 
     # Reset the positional parameters to the short options
-    eval set -- $args
+    eval set -- "$args"
 
     # read parameters
     while getopts "c:h:p:U:d:ysv0" optname
@@ -129,16 +120,20 @@ You are going to deploy patches to
 
 EOF
 
-    [[ $v_disable_prompt -eq 0 ]] && confirm_action
+    [[ "$v_disable_prompt" -eq 0 ]] && confirm_action
     return 0
 }
 
 function run_actions() {
     local patch_action=''
     local dbinstall=''
+    local -r action_sql="$PGPATCH_PATH/tools/sql/patch_or_install.sql"
 
     echo "Checking database..."
-    patch_action=$(psql -tXq -h $v_host -p $v_port -U $v_dbuser -d $v_db -f $PGPATCH_PATH/tools/sql/patch_or_install.sql | tr -d '[[:space:]]')
+    patch_action=$(psql --tuples-only --no-psqlrc --quiet \
+        --host="$v_host" --port="$v_port" --username="$v_dbuser" --dbname="$v_db" \
+        --file="$action_sql" |
+        tr -d '[:space:]')
 
     if [ "$patch_action" = 'install' ] ; then
         echo "Empty database, installing pg-patch and deploying all patches."
@@ -151,23 +146,26 @@ function run_actions() {
     fi
     echo "Applying changes..."
 
-    $PGPATCH_PATH/tools/sh/sql.sh -h $v_host -p $v_port -U $v_dbuser -d $v_db $dbinstall $v_dry_run_flag $v_silent_flag |
-        PGAPPNAME='pg-patch (main)' psql -X $v_verbose_flag -v ON_ERROR_STOP=1 --pset pager=off -h $v_host -p $v_port -U $v_dbuser -d $v_db 2>&1 |
+    "$PGPATCH_PATH/tools/sh/sql.sh" -h "$v_host" -p "$v_port" \
+            -U "$v_dbuser" -d "$v_db" $dbinstall $v_dry_run_flag $v_silent_flag |
+        PGAPPNAME='pg-patch (main)' \
+        psql -X $v_verbose_flag -v ON_ERROR_STOP=1 --pset pager=off \
+            -h "$v_host" -p "$v_port" -U "$v_dbuser" -d "$v_db" 2>&1 |
         if [ "$v_verbose_flag" = '-a' ]; then \
             cat; \
         else \
             grep_bin -E 'WARNING|ERROR|FATAL' | sed_bin 's/WARNING:  pg-patch://'; \
         fi
 
-    if [[ ${PIPESTATUS[0]} -eq 0 && ${PIPESTATUS[1]} -eq 0 ]]
+    if [[ "${PIPESTATUS[0]}" -eq 0 && "${PIPESTATUS[1]}" -eq 0 ]]
     then
         echo "Done."
     else
         echo "ERROR:  failed to deploy patches"
-        if [[ ${PIPESTATUS[0]} -ne 0 ]] ; then
-            exit ${PIPESTATUS[0]}
+        if [[ "${PIPESTATUS[0]}" -ne 0 ]] ; then
+            exit "${PIPESTATUS[0]}"
         else
-            exit ${PIPESTATUS[1]}
+            exit "${PIPESTATUS[1]}"
         fi
     fi
 
@@ -186,7 +184,7 @@ function main() {
     local v_verbose_flag='-q'
 
     # get and parse arguments
-    read_args $ARGS
+    read_args "$ARGS"
 
     # show destination and ask confirmation
     notify_and_confirm

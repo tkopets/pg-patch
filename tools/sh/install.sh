@@ -1,6 +1,6 @@
 #!/bin/bash
-
-set -e
+set -o errexit
+set -o pipefail
 
 # source read-db-args.sh located in lib dir
 readonly DIR="${BASH_SOURCE%/*}"
@@ -55,20 +55,24 @@ function read_args() {
 }
 
 function run_install() {
-    PGAPPNAME='pg-patch (main)' psql -X -v ON_ERROR_STOP=1 --pset pager=off -h $DBHOST -p $DBPORT -U $DBUSER -d $DATABASE -f $DIR/../sql/install_versioning.sql 2>&1
+    PGAPPNAME='pg-patch (main)' \
+        psql -X -v ON_ERROR_STOP=1 --pset pager=off \
+        -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DATABASE" \
+        -f "$DIR/../sql/install_versioning.sql" 2>&1
     EXITCODE=$?
 
-    if [ $EXITCODE -eq 0 ]
+    if [ "$EXITCODE" -eq 0 ]
     then
       echo "Successfully installed pg-patch"
     else
       echo "Could not install pg-patch"
     fi
 
-    exit $EXITCODE
+    exit "$EXITCODE"
 }
 
 # read args
 read_args "$@"
 
 run_install
+

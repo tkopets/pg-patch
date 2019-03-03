@@ -1,6 +1,6 @@
 #!/bin/bash
-
-set -e
+set -o errexit
+set -o pipefail
 
 readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
 
@@ -65,61 +65,64 @@ function read_input() {
     local input_val=$3
 
     if [ "$input_val" = '' ]; then
-        [[ $DISABLE_PROMPT -eq 0 ]] && read -p "$message" input_val
+        [[ $DISABLE_PROMPT -eq 0 ]] && read -r -p "$message" input_val
         input_val=${input_val:-$default_val}
     fi
-    echo $input_val
+    echo "$input_val"
 }
 
 
 function read_config() {
-    local config=$1
-    local mandatory=${2:-'optional'} # 'mandatory' or 'optional'
-    local tmp_config="/tmp/sr_db.$$.conf"
+    local -r config=$1
+    local -r mandatory=${2:-'optional'} # 'mandatory' or 'optional'
+    local -r tmp_config="/tmp/pg-patch.$$.conf"
 
     # echo "reading config: $1, mandatory: $mandatory"
 
     # print help if only command is specified and config not found
-    if [[ "$mandatory" == 'mandatory' ]] && [[ ! -f $config ]] ; then
+    if [[ "$mandatory" == 'mandatory' ]] && [[ ! -f "$config" ]] ; then
         echo "ERROR:  config file '$config' not found. See 'pg-patch --help'." 1>&2
         exit 1
     fi
 
-    if [[ -f $config ]] ; then
+    if [[ -f "$config" ]] ; then
         # clear tmp file
-        :> $tmp_config
+        :> "$tmp_config"
         # remove dangerous stuff
-        sed -e 's/#.*$//g;s/;.*$//g;/^$/d' $config |
+        sed -e 's/#.*$//g;s/;.*$//g;/^$/d' "$config" |
             while read line
             do
-                if echo $line | grep_bin -F = &>/dev/null
+                if echo "$line" | grep_bin -F = &>/dev/null
                 then
-                    echo "$line" >> $tmp_config
+                    echo "$line" >> "$tmp_config"
                 fi
             done
-        . $tmp_config
-        rm $tmp_config
+        . "$tmp_config"
+        rm "$tmp_config"
     fi
     return 0
 }
 
 
 function check_command() {
-    case "$1" in
+    local -r cmd=$1
+    PGPATCH_COMMAND=$cmd
+
+    case "$cmd" in
         help)             help && exit 0;;
         --help)           help && exit 0;;
-        list)             PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/list.sh" ;;
-        sql)              PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/sql.sh" ;;
-        deploy)           PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/deploy.sh" ;;
-        install)          PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/install.sh" ;;
-        add)              PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/add.sh" ;;
-        dot)              PGPATCH_COMMAND=$1; COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/dot.sh" ;;
+        list)             COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/list.sh" ;;
+        sql)              COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/sql.sh" ;;
+        deploy)           COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/deploy.sh" ;;
+        install)          COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/install.sh" ;;
+        add)              COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/add.sh" ;;
+        dot)              COMMAND_SCRIPT="$CURRENT_PATH/tools/sh/dot.sh" ;;
         # error, if anything else
-        *)                if [[ -z "$1" ]] ; then
+        *)                if [[ -z "$cmd" ]] ; then
                               help
                               exit 0
                           fi
-                          echo "ERROR:  '$1' is not a valid command. See 'pg-patch --help'." 1>&2
+                          echo "ERROR:  '$cmd' is not a valid command. See 'pg-patch --help'." 1>&2
                           exit 1
                           ;;
     esac
@@ -206,16 +209,20 @@ function deal_with_missing_args() {
     # process parameters
 
     # server host
-    DBHOST=$(read_input "$default_host" "Enter destination hostname [$default_host]: " "$DBHOST")
+    DBHOST=$(read_input "$default_host" \
+        "Enter destination hostname [$default_host]: " "$DBHOST")
 
     # server port
-    DBPORT=$(read_input "$default_port" "Enter destination port [$default_port]: " "$DBPORT")
+    DBPORT=$(read_input "$default_port" \
+        "Enter destination port [$default_port]: " "$DBPORT")
 
     # database user
-    DBUSER=$(read_input "$default_dbuser" "Enter destination user [$default_dbuser]: " "$DBUSER")
+    DBUSER=$(read_input "$default_dbuser" \
+        "Enter destination user [$default_dbuser]: " "$DBUSER")
 
     # database
-    DATABASE=$(read_input "$default_dbname" "Enter destination database [$default_dbname]: " "$DATABASE")
+    DATABASE=$(read_input "$default_dbname" \
+        "Enter destination database [$default_dbname]: " "$DATABASE")
 
     return 0
 }
@@ -233,20 +240,20 @@ function main() {
     long_to_short_options "${@:2}"
 
     # display help for commands
-    if [[ -n $HELP_FLAG ]] ; then
-        $COMMAND_SCRIPT '--help'
+    if [[ -n "$HELP_FLAG" ]] ; then
+        "$COMMAND_SCRIPT" '--help'
         exit 0
     fi;
 
     ## check if current dir contains .pg-patch file ##
-    if [[ ! -f $PWD/.pg-patch ]] ; then
+    if [[ ! -f "$PWD/.pg-patch" ]] ; then
         echo "ERROR:  Not a pg-patch folder (.pg-patch file is missing)"
         exit 1
     fi
 
     # run commands that can be run without db connection
     if [[ "$PGPATCH_COMMAND" == 'add' ]] ; then
-        $COMMAND_SCRIPT "${SHORT_OPTIONS[@]}"
+        "$COMMAND_SCRIPT" "${SHORT_OPTIONS[@]}"
         exit 0
     fi
 
@@ -271,9 +278,9 @@ function main() {
     # echo "PASS_THROUGH_ARGS: ${PASS_THROUGH_ARGS[@]}"
 
     # load configs, in this order
-    # ./default.conf -> ~/.pg-patch.conf -> the one supplied via option (if present)
+    # ./default.conf -> ~/.pg-patch.conf -> supplied via option (if present)
     read_config "$PWD/default.conf" 'optional'
-    read_config "~/.pg-patch.conf" 'optional'
+    read_config "$HOME/.pg-patch.conf" 'optional'
 
     if [[ -n "$param_config" ]] ; then
         read_config "$param_config" 'mandatory'
@@ -294,14 +301,13 @@ function main() {
     # echo "--   DBUSER:   $DBUSER"
     # echo "--   DATABASE: $DATABASE"
 
-    # run commands that require db connection
-    local command_db_args="-h $DBHOST -p $DBPORT -U $DBUSER -d $DATABASE"
-
-    if [[ "$PGPATCH_COMMAND" == 'deploy' && $DISABLE_PROMPT -ne 0 ]] ; then
-        $COMMAND_SCRIPT "$command_db_args" "${PASS_THROUGH_ARGS[@]}" '-y'
-    else
-        $COMMAND_SCRIPT "$command_db_args" "${PASS_THROUGH_ARGS[@]}"
+    local prompt_flag=''
+    if [[ "$PGPATCH_COMMAND" == 'deploy' && "$DISABLE_PROMPT" -ne 0 ]] ; then
+        prompt_flag='-y'
     fi
+
+    "$COMMAND_SCRIPT" -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DATABASE" \
+        "${PASS_THROUGH_ARGS[@]}" $prompt_flag
 
     exit 0
 }

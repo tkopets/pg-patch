@@ -1,4 +1,6 @@
 #!/bin/bash
+set -o errexit
+set -o pipefail
 
 # Simple tool to list files with patches that satisfies dependencies while loading them.
 
