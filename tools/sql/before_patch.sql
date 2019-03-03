@@ -63,23 +63,26 @@ begin
                 --
                 union all
                 --
-                select case when p.proisagg then 4
-                            when t.typname = 'trigger' then 6
-                            else 5
+                select case when o.type = 'aggregate' then 4
+                            when o.type = 'procedure' then 5
+                            when t.typname = 'trigger' then 7
+                            else 6
                        end as drop_order,
                        p.oid as object_oid,
-                       case when p.proisagg then 'aggregate'
-                            else 'function'
+                       case when o.type = 'aggregate' then o.type::text
+                            when o.type = 'procedure' then o.type::text
+                            when t.typname = 'trigger' then t.typname::text
+                            else 'function'::text
                        end as object_type,
                        format('%I.%I(%s)', ns.nspname, p.proname, pg_get_function_identity_arguments(p.oid)) as object_reference,
-                       case when p.proisagg is false
-                            then 'drop function if exists %s cascade;'
-                            else 'drop aggregate if exists %s cascade;'
+                       case when o.type = 'aggregate' then 'drop aggregate if exists %s cascade;'
+                            when o.type = 'procedure' then 'drop procedure if exists %s cascade;'
+                            else 'drop function if exists %s cascade;'
                        end as drop_template
                 from   pg_proc p
                        inner join pg_namespace ns on p.pronamespace = ns.oid
                        inner join pg_type t on p.prorettype = t.oid
-                       inner join pg_language pl on p.prolang = pl.oid
+                       join lateral pg_identify_object('pg_proc'::regclass::oid, p.oid, 0) as o on true
                 where  ns.nspname not like 'pg_%'
                    and ns.nspname not in ('information_schema', '_v')
                    and not exists (select 1 from pg_depend d where p.oid = d.objid and d.deptype = 'e')
@@ -112,10 +115,10 @@ begin
                    root.ref_object_identity,
                    root.dependency_type,
                    array[root.ref_object_oid] as dependency_chain,
-                   root.object_type in ('view', 'type', 'composite type', 'function', 'rule', 'trigger', 'aggregate') as is_code
+                   root.object_type in ('rule', 'view', 'type', 'composite type', 'aggregate', 'procedure', 'function', 'trigger') as is_code
             from   dependency_pair root
                    join candidates_to_drop drp on root.ref_object_oid = drp.object_oid
-            where  root.ref_object_type in ('view', 'type', 'composite type', 'function', 'rule', 'trigger', 'aggregate')
+            where  root.ref_object_type in ('rule', 'view', 'type', 'composite type', 'aggregate', 'procedure', 'function', 'trigger')
             union all
             select parent.root_object_oid,
                    parent.root_object_type,
@@ -129,7 +132,7 @@ begin
                    child.ref_object_identity,
                    child.dependency_type,
                    parent.dependency_chain || child.object_oid,
-                   child.object_type in ('view', 'type', 'composite type', 'function', 'rule', 'trigger', 'aggregate') as is_code
+                   child.object_type in ('rule', 'view', 'type', 'composite type', 'aggregate', 'procedure', 'function', 'trigger') as is_code
             from   dependency_pair child
                    join dependency_hierarchy parent on (parent.object_oid = child.ref_object_oid)
             where  not (child.object_oid = any(parent.dependency_chain)) -- prevent circular referencing
