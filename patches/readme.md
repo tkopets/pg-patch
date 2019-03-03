@@ -5,7 +5,7 @@ Sample patch script below:
 ```
 /*
  * It is *VERY IMPORTANT* that code below does not do anything
- * if function _v.register_patch returned false!
+ * if the function _v.register_patch returned false!
  */
 
 do
@@ -13,9 +13,9 @@ language plpgsql
 $body$
 declare
     -- change patch name, author and list of required patches
-    _patch   text   = 'patch-name';  -- usually same as file name without .sql extension
-    _author  text   = 'John Doe <john.doe@example.com>';
-    _depends text[] = '{dependecy1,dependency2,etc}';
+    _patch   constant text   = '<%name%>';
+    _author  constant text   = '<%author%>';
+    _depends constant text[] = '{<%dependencies%>}';
 begin
     -- try to register patch but do nothing if is not registered
     if not _v.register_patch(_patch, _author, _depends) then
