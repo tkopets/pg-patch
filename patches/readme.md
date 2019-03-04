@@ -13,9 +13,9 @@ language plpgsql
 $body$
 declare
     -- change patch name, author and list of required patches
-    _patch   constant text   = '<%name%>';
-    _author  constant text   = '<%author%>';
-    _depends constant text[] = '{<%dependencies%>}';
+    _patch   text   = '1.0-init-patch';  -- same as filename
+    _author  text   = 'John Doe <john.doe@example.com>';
+    _depends text[] = '{dependency1,dependency2}';
 begin
     -- try to register patch but do nothing if is not registered
     if not _v.register_patch(_patch, _author, _depends) then
