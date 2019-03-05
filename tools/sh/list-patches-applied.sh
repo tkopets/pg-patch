@@ -11,7 +11,7 @@ if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 
 # ignore any additional files - this way we don't even need
 # a special "query-applied-pathes.sh" script
-FILES=''
+PATCHES_DIR=''
 
 query_patches  "
 with patches as (

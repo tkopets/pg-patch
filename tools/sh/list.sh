@@ -3,7 +3,7 @@ set -o errexit
 set -o pipefail
 
 readonly CURRENT_PATH="$( cd "$( dirname "$0" )" && pwd )"
-readonly PATCHES_LIST="$PWD/patches/*.sql"
+readonly PATCHES_DIR="$PWD/patches"
 
 function help {
     cat <<EOF
@@ -76,16 +76,16 @@ function run_list() {
         fi
     elif [[ "$list_local" -eq 1 ]] ; then
         if [[ "$list_verbose" -eq 1 ]] ; then
-            "$CURRENT_PATH/list-patches-local-verbose.sh" "${unprocessed_args[@]}" $PATCHES_LIST
+            "$CURRENT_PATH/list-patches-local-verbose.sh" "${unprocessed_args[@]}" "$PATCHES_DIR"
         else
-            "$CURRENT_PATH/list-patches-local.sh" "${unprocessed_args[@]}" $PATCHES_LIST
+            "$CURRENT_PATH/list-patches-local.sh" "${unprocessed_args[@]}" "$PATCHES_DIR"
         fi
     else
         # default, if none specified
         if [[ "$list_verbose" -eq 1 ]] ; then
-            "$CURRENT_PATH/list-patches-both-verbose.sh" "${unprocessed_args[@]}" $PATCHES_LIST
+            "$CURRENT_PATH/list-patches-both-verbose.sh" "${unprocessed_args[@]}" "$PATCHES_DIR"
         else
-            "$CURRENT_PATH/list-patches-both.sh" "${unprocessed_args[@]}" $PATCHES_LIST
+            "$CURRENT_PATH/list-patches-both.sh" "${unprocessed_args[@]}" "$PATCHES_DIR"
         fi
     fi
 

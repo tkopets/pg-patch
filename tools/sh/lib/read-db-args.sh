@@ -1,6 +1,6 @@
 #!/bin/bash
-
-set -e
+set -o errexit
+set -o pipefail
 
 readonly ARGS="$@"
 readonly ARGC="$#"
@@ -72,7 +72,7 @@ function read_db_args() {
         echo "ERROR:  DB name -d (--database) is not specified" 1>&2; exit 1;
     fi
 
-    DBARGS_LEFTOVERS=$@
+    DBARGS_LEFTOVERS="$@"
 
     return 0
 }

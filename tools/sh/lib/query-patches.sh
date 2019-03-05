@@ -1,4 +1,6 @@
 #!/bin/bash
+set -o errexit
+set -o pipefail
 
 # Usage and options are similar to main run.sh,
 # but list of files should be supplied in the end
@@ -9,11 +11,7 @@ DIR="${BASH_SOURCE%/*}"
 if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 . "$DIR/read-db-args.sh"
 
-
-set -e
-
-FILES=''
-
+PATCHES_DIR=''
 
 function help {
     cat <<EOF
@@ -160,7 +158,7 @@ function query_patches() {
     local sql_versioning_file="$DIR/../../sql/install_versioning.sql"
 
     # sane default
-    if [[  $extra_psql_args = '' ]]
+    if [[  "$extra_psql_args" = '' ]]
     then
         extra_psql_args="--quiet --tuples-only --no-align --pset pager=off"
     fi
@@ -169,34 +167,37 @@ function query_patches() {
         echo '\o /dev/null'
         echo 'BEGIN;'
         echo
-        sed_strip_utf8_bom $sql_header_file
+        sed_strip_utf8_bom "$sql_header_file"
         echo
         echo "SET client_min_messages = error;"
         echo
-        sed_strip_utf8_bom $sql_versioning_file
+        sed_strip_utf8_bom "$sql_versioning_file"
         echo
     )
 
-    local patches=$(
-        for i in $FILES ; do
-            echo
-            echo '-- setting pgpatch_filename psql variable'
-            echo '\set' pgpatch_filename $i
-            echo "set pgpatch.current_patch_file = :'pgpatch_filename';"
-            echo
-            sed_strip_utf8_bom $i | sed_remove_commit
-            echo
-        done
-    )
+    local patches=
+    local check_local_query=
+    local check_depend_query=
 
-    local check_local_query=''
-    if [ "$FILES" != '' ] ; then
-        check_local_query=$check_local_patches_query
-    fi
+    if [ "$PATCHES_DIR" != '' ] ; then
+        local patches=$(
+            for patch_file in "$PATCHES_DIR/"*.sql ; do
+                local filename_escaped=$(echo "$patch_file" | sed "s/'/\\\'/")
+                echo
+                echo '-- setting pgpatch_filename psql variable'
+                echo '\set' pgpatch_filename "'$filename_escaped'"
+                echo "set pgpatch.current_patch_file = :'pgpatch_filename';"
+                echo
+                sed_strip_utf8_bom "$patch_file" | sed_remove_commit
+                echo
+            done
+        )
 
-    local check_depend_query=''
-    if [ $SILENT_FLAG_SET -eq 0 ] && [ "$FILES" != '' ] ; then
-        check_depend_query=$check_depend_patches_query
+        check_local_query="$check_local_patches_query"
+
+        if [ "$SILENT_FLAG_SET" -eq 0 ] ; then
+            check_depend_query="$check_depend_patches_query"
+        fi
     fi
 
     local post_patches=$(
@@ -228,18 +229,18 @@ function read_local_args() {
     done
 
     # assign leftovers to files
-    FILES="$@"
+    PATCHES_DIR="$@"
 
     return 0
 }
 
 function main() {
     # get db related args
-    read_db_args $ARGS
+    read_db_args "$ARGS"
 
     # read other args
     # variable DBARGS_LEFTOVERS defined in read-db-args.sh
-    read_local_args $DBARGS_LEFTOVERS
+    read_local_args "$DBARGS_LEFTOVERS"
 }
 
 main

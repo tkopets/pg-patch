@@ -69,22 +69,22 @@ function grep_bin() {
 function get_code_objects_path {
     local CODE_PATH=''
     if [[ -d "$PWD/code/types" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/types"
+        CODE_PATH="$CODE_PATH\n$PWD/code/types"
     fi
     if [[ -d "$PWD/code/functions" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/functions"
+        CODE_PATH="$CODE_PATH\n$PWD/code/functions"
     fi
     if [[ -d "$PWD/code/views" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/views"
+        CODE_PATH="$CODE_PATH\n$PWD/code/views"
     fi
     if [[ -d "$PWD/code/rules" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/rules"
+        CODE_PATH="$CODE_PATH\n$PWD/code/rules"
     fi
     if [[ -d "$PWD/code/triggers" ]] ; then
-        CODE_PATH="$CODE_PATH $PWD/code/triggers"
+        CODE_PATH="$CODE_PATH\n$PWD/code/triggers"
     fi
 
-    echo $CODE_PATH
+    echo -e "${CODE_PATH}"
 }
 
 function load_versioning() {
@@ -99,7 +99,7 @@ function get_patches_install_order() {
     fi
 
     "$DIR/util-patch-files.sh" -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DATABASE" \
-        "$SILENT_FLAG" "$PWD/patches/*.sql"
+        "$SILENT_FLAG" "$PWD/patches"
 }
 
 function lock_for_patch(){
@@ -142,6 +142,8 @@ function lock_for_patch(){
 }
 
 function load_patches() {
+    local -r files_list="$@"
+
     # before patch. drop code objects
     sed_strip_utf8_bom "$DB_PATH/tools/sql/before_patch.sql"
 
@@ -149,7 +151,12 @@ function load_patches() {
     echo "-- apply patches --"
     echo
     # apply incremental changes
-    echo "$@" | xargs -I{} cat {} | sed_strip_utf8_bom
+    printf '%s\n' "$files_list" |
+    while IFS= read -r line; do
+        if [ "$line" != '' ] ; then
+            sed_strip_utf8_bom "$line"
+        fi
+    done
 
     #$DB_PATH/tools/sh/list-dependencies-from-patches.sh $PWD/patches/*.sql \
     #     | xargs -I{} cat {}
@@ -166,15 +173,19 @@ function load_patches() {
 
 function install_code_objects {
 
-    local MODULE_PATH=''
+    local code_path_list=''
 
-    MODULE_PATH="$(get_code_objects_path)"
+    code_path_list="$(get_code_objects_path)"
 
-    export -f sed_bin
-    export -f sed_strip_utf8_bom
-    find $MODULE_PATH -name '*.sql' -type f -print0 \
-        | xargs -0 -I{} bash -c 'sed_strip_utf8_bom {}'
-
+    printf '%s\n' "$code_path_list" | \
+    while IFS= read -r line; do
+        if [ "$line" != '' ] ; then
+            export -f sed_bin
+            export -f sed_strip_utf8_bom
+            find "$line" -name '*.sql' -type f \
+                -exec bash -c 'sed_strip_utf8_bom "$0"' {} \;
+        fi
+    done
 }
 
 
