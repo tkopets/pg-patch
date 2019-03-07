@@ -222,7 +222,7 @@ function read_args() {
     unprocessed_args=()
 
     # debug output:
-    # echo "-- all args:  $@"
+    # echo "-- all args:  $@" 1>&2
 
     # process parameters
     for var in "$@"
@@ -240,18 +240,18 @@ function read_args() {
     done
 
     # debug output:
-    # echo "-- unprocessed args: ${unprocessed_args[@]}"
+    # echo "-- unprocessed args: ${unprocessed_args[@]}" 1>&2
 
     read_db_args "${unprocessed_args[@]}"
 
     # debug output:
-    # echo "-- LOAD_BASE: $LOAD_BASE"
-    # echo "-- DRY_RUN:   $DRY_RUN"
-    # echo "-- DBHOST:    $DBHOST"
-    # echo "-- DBPORT:    $DBPORT"
-    # echo "-- DBUSER:    $DBUSER"
-    # echo "-- DATABASE:  $DATABASE"
-    # echo "-- SILENT:    $SILENT_FLAG_SET"
+    # echo "-- LOAD_BASE: $LOAD_BASE" 1>&2
+    # echo "-- DRY_RUN:   $DRY_RUN" 1>&2
+    # echo "-- DBHOST:    $DBHOST" 1>&2
+    # echo "-- DBPORT:    $DBPORT" 1>&2
+    # echo "-- DBUSER:    $DBUSER" 1>&2
+    # echo "-- DATABASE:  $DATABASE" 1>&2
+    # echo "-- SILENT:    $SILENT_FLAG_SET" 1>&2
 
     return 0
 }

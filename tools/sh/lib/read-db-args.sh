@@ -49,9 +49,9 @@ function read_db_args() {
             "U") dbuser_ok=true;   DBUSER=$OPTARG ;;
             "d") database_ok=true; DATABASE=$OPTARG ;;
             "s") SILENT_FLAG_SET=1 ;;
-            "?") echo "Unknown option -$OPTARG" ;;
-            ":") echo "No argument value for option $OPTARG" ;;
-            *) echo "Unknown error while processing options" ;;
+            "?") echo "Unknown option -$OPTARG" 1>&2; exit 1 ;;
+            ":") echo "No argument value for option $OPTARG" 1>&2; exit 1 ;;
+            *) echo "Unknown error while processing options" 1>&2; exit 1 ;;
         esac
     done
     shift $((OPTIND -1))
